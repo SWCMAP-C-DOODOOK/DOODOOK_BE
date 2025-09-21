@@ -9,6 +9,9 @@ class User(AbstractUser):
         ADMIN = "admin", "admin"
         MEMBER = "member", "member"
 
+    email = models.EmailField(unique=True, null=True, blank=True)
+    phone_number = models.CharField(max_length=20, null=True, blank=True)
+    kakao_id = models.CharField(max_length=64, unique=True, null=True, blank=True)
     role = models.CharField(max_length=10, choices=Roles.choices, default=Roles.MEMBER, db_index=True)
 
     def __str__(self):

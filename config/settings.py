@@ -53,6 +53,7 @@ INSTALLED_APPS = [
     # third-party
     'rest_framework',
     'django_filters',
+    'corsheaders',
     'storages',
     # local apps
     'apps.common',
@@ -64,6 +65,7 @@ AUTH_USER_MODEL = 'users.User'
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
+    'corsheaders.middleware.CorsMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
@@ -199,3 +201,39 @@ OPENBANKING_BASE_URL = os.environ.get('OPENBANKING_BASE_URL', '')
 OPENBANKING_ACCESS_TOKEN = os.environ.get('OPENBANKING_ACCESS_TOKEN', '')
 OPENBANKING_TIMEOUT = int(os.environ.get('OPENBANKING_TIMEOUT', '10'))
 # TODO: add structured logging / retry policy for OpenBanking client
+
+
+# CORS settings
+CORS_ALLOWED_ORIGINS = [o for o in os.environ.get('CORS_ALLOWED_ORIGINS', '').split(',') if o]
+CORS_ALLOWED_ORIGIN_REGEXES = [o for o in os.environ.get('CORS_ALLOWED_ORIGIN_REGEXES', '').split(',') if o]
+CORS_ALLOW_CREDENTIALS = True
+
+
+# Logging
+LOG_LEVEL = os.environ.get('LOG_LEVEL', 'INFO')
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'formatters': {
+        'standard': {
+            'format': '[%(asctime)s] %(levelname)s %(name)s: %(message)s',
+        },
+    },
+    'handlers': {
+        'console': {
+            'class': 'logging.StreamHandler',
+            'formatter': 'standard',
+        },
+    },
+    'root': {
+        'handlers': ['console'],
+        'level': LOG_LEVEL,
+    },
+    'loggers': {
+        'django.request': {
+            'handlers': ['console'],
+            'level': 'WARNING',
+            'propagate': True,
+        },
+    },
+}
