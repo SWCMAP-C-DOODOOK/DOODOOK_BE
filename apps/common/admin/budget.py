@@ -1,0 +1,42 @@
+# moved from apps/common/admin.py
+from django.contrib import admin
+from django.db.models import Sum
+
+from apps.common.models import Budget, Transaction
+
+
+@admin.register(Budget)
+class BudgetAdmin(admin.ModelAdmin):
+    list_display = ("id", "name", "allocated_amount", "used_amount", "remaining_amount", "used_percent", "created_at", "updated_at")
+    search_fields = ("name",)
+    readonly_fields = ("used_amount", "remaining_amount", "used_percent")
+    ordering = ("name",)
+
+    def _usage(self, obj):
+        cached = getattr(obj, "_cached_used_amount", None)
+        if cached is not None:
+            return cached
+        direct = obj.transactions.filter(type=Transaction.TransactionType.EXPENSE).aggregate(total=Sum("amount")).get("total") or 0
+        category = Transaction.objects.filter(
+            budget__isnull=True,
+            category=obj.name,
+            type=Transaction.TransactionType.EXPENSE,
+        ).aggregate(total=Sum("amount")).get("total") or 0
+        obj._cached_used_amount = int(direct) + int(category)
+        return obj._cached_used_amount
+
+    def used_amount(self, obj):
+        return self._usage(obj)
+
+    def remaining_amount(self, obj):
+        return obj.allocated_amount - self._usage(obj)
+
+    def used_percent(self, obj):
+        allocated = obj.allocated_amount or 0
+        if not allocated:
+            return 0.0
+        return round((self._usage(obj) / allocated) * 100, 2)
+
+    used_amount.short_description = "Used"
+    remaining_amount.short_description = "Remaining"
+    used_percent.short_description = "Used %"

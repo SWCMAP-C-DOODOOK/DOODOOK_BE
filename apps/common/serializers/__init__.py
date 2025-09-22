@@ -1,14 +1,12 @@
-# moved to apps/common/serializers package
-from .serializers import (
-    BudgetSerializer,
-    BudgetWriteSerializer,
-    DuesStatusSerializer,
+# moved from apps/common/serializers.py
+from .budget import BudgetSerializer, BudgetWriteSerializer
+from .dues import DuesStatusSerializer, PaymentSerializer
+from .ledger import TransactionSerializer
+from .ocr import ReceiptOCRRequestSerializer
+from .openbanking import (
     OpenBankingAccountSerializer,
     OpenBankingBalanceQuerySerializer,
     OpenBankingTransactionQuerySerializer,
-    PaymentSerializer,
-    ReceiptOCRRequestSerializer,
-    TransactionSerializer,
 )
 
 __all__ = [

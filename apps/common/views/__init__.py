@@ -1,14 +1,12 @@
-# moved to apps/common/views package
-from .views import (
-    BudgetViewSet,
-    DuesStatusView,
-    DuesUnpaidView,
+# moved from apps/common/views.py
+from .budget import BudgetViewSet
+from .dues import DuesStatusView, DuesUnpaidView, PaymentViewSet
+from .ledger import TransactionViewSet
+from .ocr import ReceiptOCRView
+from .openbanking import (
     OpenBankingAccountViewSet,
     OpenBankingBalanceView,
     OpenBankingTransactionsView,
-    PaymentViewSet,
-    ReceiptOCRView,
-    TransactionViewSet,
 )
 
 __all__ = [

@@ -1,16 +1,14 @@
 from django.urls import path
 from rest_framework.routers import DefaultRouter
 
-from .views import (
-    BudgetViewSet,
-    DuesStatusView,
-    DuesUnpaidView,
+from apps.common.views.budget import BudgetViewSet
+from apps.common.views.dues import DuesStatusView, DuesUnpaidView, PaymentViewSet
+from apps.common.views.ledger import TransactionViewSet
+from apps.common.views.ocr import ReceiptOCRView
+from apps.common.views.openbanking import (
     OpenBankingAccountViewSet,
     OpenBankingBalanceView,
     OpenBankingTransactionsView,
-    PaymentViewSet,
-    ReceiptOCRView,
-    TransactionViewSet,
 )
 
 

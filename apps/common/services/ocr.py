@@ -1,3 +1,7 @@
+"""Kakao OCR service helpers."""
+
+# moved from apps/common/services/ocr.py
+
 import json
 from typing import BinaryIO
 

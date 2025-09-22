@@ -1,3 +1,7 @@
+"""OpenBanking API client helpers."""
+
+# moved from apps/common/services/openbanking.py
+
 import logging
 from typing import Any, Dict, Optional
 
@@ -107,4 +111,3 @@ def fetch_transactions(
         # TODO: Production request should include bank_tran_id, inquiry_type, inquiry_base_dtime, etc.
     }
     return _request("/v2.0/account/transaction_list", params=params, timeout=timeout)
-
