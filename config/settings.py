@@ -210,7 +210,7 @@ CORS_ALLOW_CREDENTIALS = True
 
 
 # Logging
-LOG_LEVEL = os.environ.get('LOG_LEVEL', 'INFO')
+LOG_LEVEL = os.environ.get('LOG_LEVEL', os.environ.get('DJANGO_LOG_LEVEL', 'INFO'))
 LOGGING = {
     'version': 1,
     'disable_existing_loggers': False,

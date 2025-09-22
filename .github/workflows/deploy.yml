@@ -27,7 +27,7 @@ jobs:
           DJANGO_SECRET_KEY: test-key
         run: |
           python manage.py check
-          python manage.py test --verbosity=2 || true  # TODO: remove '|| true' when tests are stable
+          python manage.py test --verbosity=2
 
   deploy:
     needs: build

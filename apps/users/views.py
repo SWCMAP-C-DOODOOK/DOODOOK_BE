@@ -1,15 +1,6 @@
 import os
 from urllib.parse import urlencode
 
-from django.contrib.auth import get_user_model
-from django.shortcuts import get_object_or_404
-from rest_framework import viewsets
-from rest_framework.decorators import action
-from rest_framework.exceptions import ValidationError
-from rest_framework.permissions import IsAuthenticated
-from rest_framework.response import Response
-from rest_framework.views import APIView
-
 from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.shortcuts import get_object_or_404
@@ -26,9 +17,6 @@ from apps.common.permissions import IsAdminRole
 from .models import UserProfile
 from .serializers import RoleUpdateSerializer, UserProfileSerializer, UserSerializer
 from .services.kakao import KakaoServiceError, exchange_code_for_token, fetch_user_me
-
-from .models import UserProfile
-from .serializers import RoleUpdateSerializer, UserProfileSerializer
 
 
 class UserProfileViewSet(viewsets.ModelViewSet):
@@ -95,9 +83,9 @@ class KakaoLoginAPIView(APIView):
         if not code:
             raise ValidationError({"code": "code is required"})
 
-        client_id = settings.KAKAO_REST_API_KEY = os.environ.get("KAKAO_REST_API_KEY", "")
-        redirect_uri = os.environ.get("KAKAO_REDIRECT_URI", "")
-        client_secret = os.environ.get("KAKAO_CLIENT_SECRET") or None
+        client_id = os.environ.get("KAKAO_REST_API_KEY") or getattr(settings, "KAKAO_REST_API_KEY", "")
+        redirect_uri = os.environ.get("KAKAO_REDIRECT_URI") or getattr(settings, "KAKAO_REDIRECT_URI", "")
+        client_secret = os.environ.get("KAKAO_CLIENT_SECRET") or getattr(settings, "KAKAO_CLIENT_SECRET", None)
         if not client_id or not redirect_uri:
             raise ValidationError({"detail": "Kakao OAuth environment not configured"})
 

@@ -1,5 +1,3 @@
-"""OpenBanking API client helpers."""
-
 # moved from apps/common/services/openbanking.py
 
 import logging
