@@ -1,13 +1,23 @@
-# moved from apps/common/admin.py
+# moved from apps/common/admin/budget.py
 from django.contrib import admin
 from django.db.models import Sum
 
-from apps.common.models import Budget, Transaction
+from apps.budget.models import Budget
+from apps.common.models import Transaction
 
 
 @admin.register(Budget)
 class BudgetAdmin(admin.ModelAdmin):
-    list_display = ("id", "name", "allocated_amount", "used_amount", "remaining_amount", "used_percent", "created_at", "updated_at")
+    list_display = (
+        "id",
+        "name",
+        "allocated_amount",
+        "used_amount",
+        "remaining_amount",
+        "used_percent",
+        "created_at",
+        "updated_at",
+    )
     search_fields = ("name",)
     readonly_fields = ("used_amount", "remaining_amount", "used_percent")
     ordering = ("name",)
@@ -17,11 +27,14 @@ class BudgetAdmin(admin.ModelAdmin):
         if cached is not None:
             return cached
         direct = obj.transactions.filter(type=Transaction.TransactionType.EXPENSE).aggregate(total=Sum("amount")).get("total") or 0
-        category = Transaction.objects.filter(
-            budget__isnull=True,
-            category=obj.name,
-            type=Transaction.TransactionType.EXPENSE,
-        ).aggregate(total=Sum("amount")).get("total") or 0
+        category = (
+            Transaction.objects.filter(
+                budget__isnull=True,
+                category=obj.name,
+                type=Transaction.TransactionType.EXPENSE,
+            ).aggregate(total=Sum("amount")).get("total")
+            or 0
+        )
         obj._cached_used_amount = int(direct) + int(category)
         return obj._cached_used_amount
 

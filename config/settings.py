@@ -56,6 +56,9 @@ INSTALLED_APPS = [
     'corsheaders',
     'storages',
     # local apps
+    'apps.budget',
+    'apps.openbanking',
+    'apps.ocr',
     'apps.common',
     'apps.users',
 ]

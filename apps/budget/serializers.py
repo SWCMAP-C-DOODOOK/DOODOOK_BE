@@ -1,7 +1,7 @@
-# moved from apps/common/serializers.py
+# moved from apps/common/serializers/budget.py
 from rest_framework import serializers
 
-from apps.common.models import Budget
+from apps.budget.models import Budget
 
 
 class BudgetSerializer(serializers.ModelSerializer):

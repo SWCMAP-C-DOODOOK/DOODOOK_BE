@@ -5,6 +5,9 @@ from django.conf.urls.static import static
 
 urlpatterns = [
     path('admin/', admin.site.urls),
+    path('api/', include('apps.budget.urls')),
+    path('api/', include('apps.openbanking.urls')),
+    path('api/', include('apps.ocr.urls')),
     path('api/', include('apps.common.urls')),
     path('api/', include('apps.users.urls')),
 ]

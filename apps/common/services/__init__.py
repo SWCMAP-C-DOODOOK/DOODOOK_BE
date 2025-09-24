@@ -1,6 +1,5 @@
 # moved from apps/common/services package
-from .ocr import OCRServiceError, extract_text_from_image
-from .openbanking import (
+from apps.openbanking.services import (
     OpenBankingServiceError,
     OpenBankingTimeoutError,
     OpenBankingUnauthorizedError,
@@ -8,6 +7,7 @@ from .openbanking import (
     fetch_transactions,
     get_headers,
 )
+from apps.ocr.services import OCRServiceError, extract_text_from_image
 
 __all__ = [
     "OCRServiceError",

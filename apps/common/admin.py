@@ -1,5 +1,7 @@
 # moved to apps/common/admin package
-from .admin import BudgetAdmin, OpenBankingAccountAdmin, PaymentAdmin, TransactionAdmin
+from apps.budget.admin import BudgetAdmin
+from apps.openbanking.admin import OpenBankingAccountAdmin
+from .admin import PaymentAdmin, TransactionAdmin
 
 __all__ = [
     "BudgetAdmin",

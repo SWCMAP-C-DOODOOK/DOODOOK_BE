@@ -1,7 +1,7 @@
-# moved from apps/common/models.py
+# moved from apps/common/models/budget.py
 from django.db import models
 
-from . import TimeStampedModel
+from apps.common.models.base import TimeStampedModel
 
 
 class Budget(TimeStampedModel):
@@ -19,3 +19,4 @@ class Budget(TimeStampedModel):
             models.UniqueConstraint(fields=["name"], name="uq_budget_name"),
         ]
         ordering = ["name"]
+        db_table = "common_budget"

@@ -13,7 +13,7 @@ class Transaction(TimeStampedModel):
         EXPENSE = "expense", "expense"
 
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="transactions")
-    budget = models.ForeignKey('common.Budget', on_delete=models.SET_NULL, related_name="transactions", blank=True, null=True)
+    budget = models.ForeignKey('budget.Budget', on_delete=models.SET_NULL, related_name="transactions", blank=True, null=True)
     amount = models.PositiveIntegerField()
     description = models.CharField(max_length=255)
     date = models.DateField()
