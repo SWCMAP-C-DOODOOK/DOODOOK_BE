@@ -15,6 +15,8 @@ Payment = _package.Payment
 Budget = _package.Budget
 Transaction = _package.Transaction
 OpenBankingAccount = _package.OpenBankingAccount
+OcrValidationLog = _package.OcrValidationLog
+OcrApproval = _package.OcrApproval
 
 __all__ = [
     "TimeStampedModel",
@@ -22,4 +24,6 @@ __all__ = [
     "Budget",
     "Transaction",
     "OpenBankingAccount",
+    "OcrValidationLog",
+    "OcrApproval",
 ]

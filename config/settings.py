@@ -33,6 +33,22 @@ def _get_bool(name: str, default: bool = False) -> bool:
 
 _load_env_file(BASE_DIR / ".env")
 
+try:
+    import django_filters  # noqa: F401
+except ImportError:
+    _HAS_DJANGO_FILTERS = False
+else:
+    _HAS_DJANGO_FILTERS = True
+
+RECEIPT_MAX_MB = float(os.environ.get("RECEIPT_MAX_MB", "10"))
+RECEIPT_ALLOWED_EXTS = [
+    ext.strip().lower()
+    for ext in os.environ.get("RECEIPT_ALLOWED_EXTS", "jpg,jpeg,png,pdf").split(",")
+    if ext.strip()
+]
+if not RECEIPT_ALLOWED_EXTS:
+    RECEIPT_ALLOWED_EXTS = ["jpg", "jpeg", "png", "pdf"]
+
 SECRET_KEY = os.environ.get("SECRET_KEY", "dev-only-not-for-prod")
 
 # SECURITY WARNING: don't run with debug turned on in production!
@@ -59,9 +75,14 @@ INSTALLED_APPS = [
     'apps.budget',
     'apps.openbanking',
     'apps.ocr',
+    'apps.ledger',
+    'apps.dues',
     'apps.common',
     'apps.users',
 ]
+
+if not _HAS_DJANGO_FILTERS:
+    INSTALLED_APPS.remove('django_filters')
 
 AUTH_USER_MODEL = 'users.User'
 

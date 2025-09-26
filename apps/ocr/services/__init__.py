@@ -1,4 +1,5 @@
 # moved from apps/common/services/ocr.py
+import base64
 import json
 from typing import BinaryIO
 
@@ -63,3 +64,14 @@ def extract_text_from_image(fileobj: BinaryIO, api_key: str, timeout: int = 10) 
 
     text = "\n".join(line for line in lines if line).strip()
     return text
+
+
+def encode_file_to_base64(fileobj: BinaryIO) -> str:
+    if hasattr(fileobj, "seek"):
+        fileobj.seek(0)
+    content = fileobj.read()
+    if hasattr(fileobj, "seek"):
+        fileobj.seek(0)
+    if not content:
+        raise OCRServiceError("Empty image content", status_code=400)
+    return base64.b64encode(content).decode()
