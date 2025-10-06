@@ -1,5 +1,5 @@
-# moved to apps/ocr/services.py
-from apps.ocr.services import OCRServiceError, extract_text_from_image  # noqa: F401
+# moved to apps/ocr/services
+from apps.ocr.services import OCRServiceError, encode_file_to_base64  # noqa: F401
 
 
-__all__ = ["OCRServiceError", "extract_text_from_image"]
+__all__ = ["OCRServiceError", "encode_file_to_base64"]

@@ -7,7 +7,6 @@ from apps.common.models import OcrApproval
 class ReceiptOCRRequestSerializer(serializers.Serializer):
     transaction_id = serializers.IntegerField(required=False, min_value=1)
     image = serializers.ImageField(required=False, allow_null=True)
-    provider = serializers.ChoiceField(choices=["google", "kakao"], default="google")
     manual_overrides = serializers.DictField(child=serializers.CharField(), required=False)
     notes = serializers.CharField(required=False, allow_blank=True)
     store = serializers.BooleanField(required=False, default=False)

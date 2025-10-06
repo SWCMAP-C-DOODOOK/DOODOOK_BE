@@ -1,4 +1,3 @@
-# moved to apps/ledger/serializers.py
-from apps.ledger.serializers import TransactionSerializer  # noqa: F401
+"""Deprecated module. Import TransactionSerializer from `apps.ledger.serializers`."""
 
-__all__ = ["TransactionSerializer"]
+__all__ = []

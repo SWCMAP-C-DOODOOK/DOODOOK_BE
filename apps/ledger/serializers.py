@@ -1,12 +1,27 @@
 import os
 import re
+from typing import TYPE_CHECKING
 
+from django.apps import apps
 from django.conf import settings
 from django.utils import timezone
 from rest_framework import serializers
 
-from apps.common.models import Budget, Transaction
+Budget = apps.get_model("budget", "Budget")
+Transaction = apps.get_model("common", "Transaction")
+try:  # optional models, guarded for projects without these apps
+    Account = apps.get_model("account", "Account")
+except LookupError:  # pragma: no cover
+    Account = None
+try:
+    Category = apps.get_model("ledger", "Category")
+except LookupError:  # pragma: no cover
+    Category = None
+
 from apps.users.serializers import UserSerializer
+
+if TYPE_CHECKING:  # pragma: no cover
+    from apps.budget.models import Budget  # noqa: F401
 
 
 class TransactionSerializer(serializers.ModelSerializer):

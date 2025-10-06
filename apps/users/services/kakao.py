@@ -1,5 +1,4 @@
 import json
-from typing import Optional
 
 import requests
 
@@ -17,7 +16,6 @@ def exchange_code_for_token(
     *,
     client_id: str,
     redirect_uri: str,
-    client_secret: Optional[str] = None,
     timeout: int = 10,
 ) -> dict:
     payload = {
@@ -26,8 +24,6 @@ def exchange_code_for_token(
         "redirect_uri": redirect_uri,
         "code": code,
     }
-    if client_secret:
-        payload["client_secret"] = client_secret
 
     try:
         response = requests.post(
@@ -69,4 +65,3 @@ def _extract_detail(response: requests.Response) -> str:
         return json.dumps(response.json())
     except ValueError:
         return response.text or ""
-

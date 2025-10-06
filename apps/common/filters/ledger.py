@@ -1,8 +1,14 @@
 # moved from apps/common/filters.py
+from typing import TYPE_CHECKING
+
 import django_filters
+from django.apps import apps as django_apps
 from django.db.models import Q
 
-from apps.common.models import Budget, Transaction
+from apps.common.models import Transaction
+
+if TYPE_CHECKING:  # pragma: no cover
+    from apps.budget.models import Budget  # noqa: F401
 
 
 class TransactionFilter(django_filters.FilterSet):
@@ -30,5 +36,5 @@ class BudgetFilter(django_filters.FilterSet):
     name = django_filters.CharFilter(field_name="name", lookup_expr="icontains")
 
     class Meta:
-        model = Budget
+        model = django_apps.get_model("budget", "Budget")
         fields = ["name"]

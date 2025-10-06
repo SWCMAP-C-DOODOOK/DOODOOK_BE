@@ -8,13 +8,11 @@ from .serializers import (
     OpenBankingTransactionQuerySerializer,
     PaymentSerializer,
     ReceiptOCRRequestSerializer,
-    TransactionSerializer,
 )
 
 __all__ = [
     "PaymentSerializer",
     "DuesStatusSerializer",
-    "TransactionSerializer",
     "ReceiptOCRRequestSerializer",
     "BudgetSerializer",
     "BudgetWriteSerializer",

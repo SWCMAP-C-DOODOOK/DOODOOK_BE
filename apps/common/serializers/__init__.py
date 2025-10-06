@@ -7,12 +7,10 @@ from apps.openbanking.serializers import (
     OpenBankingTransactionQuerySerializer,
 )
 from .dues import DuesStatusSerializer, PaymentSerializer
-from .ledger import TransactionSerializer
 
 __all__ = [
     "PaymentSerializer",
     "DuesStatusSerializer",
-    "TransactionSerializer",
     "ReceiptOCRRequestSerializer",
     "BudgetSerializer",
     "BudgetWriteSerializer",

@@ -7,11 +7,11 @@ from apps.openbanking.services import (
     fetch_transactions,
     get_headers,
 )
-from apps.ocr.services import OCRServiceError, extract_text_from_image
+from apps.ocr.services import OCRServiceError, encode_file_to_base64
 
 __all__ = [
     "OCRServiceError",
-    "extract_text_from_image",
+    "encode_file_to_base64",
     "OpenBankingServiceError",
     "OpenBankingTimeoutError",
     "OpenBankingUnauthorizedError",

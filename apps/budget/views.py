@@ -15,7 +15,7 @@ from apps.budget.serializers import BudgetSerializer, BudgetWriteSerializer
 from apps.common.filters import BudgetFilter, TransactionFilter
 from apps.common.models import Transaction
 from apps.common.permissions import IsAdminOrReadOnly
-from apps.common.serializers import TransactionSerializer
+from apps.ledger.serializers import TransactionSerializer
 
 
 class BudgetViewSet(viewsets.ModelViewSet):

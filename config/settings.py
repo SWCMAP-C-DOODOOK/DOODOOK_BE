@@ -49,6 +49,10 @@ RECEIPT_ALLOWED_EXTS = [
 if not RECEIPT_ALLOWED_EXTS:
     RECEIPT_ALLOWED_EXTS = ["jpg", "jpeg", "png", "pdf"]
 
+KAKAO_LOGIN_REDIRECT_URL = os.environ.get("KAKAO_LOGIN_REDIRECT_URL", "")
+CLOVA_OCR_API_URL = os.environ.get("CLOVA_OCR_API_URL", "")
+CLOVA_OCR_SECRET = os.environ.get("CLOVA_OCR_SECRET", "")
+
 SECRET_KEY = os.environ.get("SECRET_KEY", "dev-only-not-for-prod")
 
 # SECURITY WARNING: don't run with debug turned on in production!

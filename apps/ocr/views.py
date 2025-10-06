@@ -3,6 +3,7 @@ import io
 import json
 import os
 
+from django.conf import settings
 from django.db import transaction as db_transaction
 from django.shortcuts import get_object_or_404
 from rest_framework import status
@@ -15,8 +16,8 @@ from rest_framework.views import APIView
 from apps.common.models import OcrApproval, OcrValidationLog, Transaction
 from apps.common.permissions import IsAdminOrReadOnly, IsAdminRole
 from apps.ocr.serializers import OcrApprovalSerializer, ReceiptOCRRequestSerializer
-from apps.ocr.services import OCRServiceError, encode_file_to_base64, extract_text_from_image
-from apps.ocr.services.google_ocr import extract_text_base64, parse_receipt
+from apps.ocr.services import OCRServiceError, encode_file_to_base64
+from apps.ocr.services.clova_ocr import extract_text_clova, parse_receipt
 
 
 class ReceiptOCRView(APIView):
@@ -25,7 +26,7 @@ class ReceiptOCRView(APIView):
 
     def post(self, request):
         data = request.data.copy() if hasattr(request.data, "copy") else dict(request.data)
-        for key in ("transaction_id", "store", "overwrite", "provider", "manual_overrides", "notes"):
+        for key in ("transaction_id", "store", "overwrite", "manual_overrides", "notes"):
             if key not in data and key in request.query_params:
                 data[key] = request.query_params[key]
 
@@ -39,7 +40,6 @@ class ReceiptOCRView(APIView):
         transaction_id = validated.get("transaction_id")
         store = validated.get("store", False)
         overwrite = validated.get("overwrite", False)
-        provider = validated.get("provider", "google")
         manual_overrides = validated.get("manual_overrides") or {}
         notes = validated.get("notes", "")
         source = "uploaded" if has_image else "transaction"
@@ -68,23 +68,25 @@ class ReceiptOCRView(APIView):
             image_file.open("rb")
             needs_close = True
 
+        image_name = getattr(image_file, "name", "") or ""
+        image_format = os.path.splitext(image_name)[1].lower().lstrip(".") or "jpg"
+
+        raw_payload = None
+
         try:
-            if provider == "google":
-                google_key = os.environ.get("GOOGLE_VISION_API_KEY", "")
-                b64_content = encode_file_to_base64(image_file)
-                response_payload = extract_text_base64(b64_content, api_key=google_key)
-                raw_text = response_payload.get("text", "")
-            elif provider == "kakao":
-                api_key = os.environ.get("KAKAO_REST_API_KEY", "")
-                buffer = io.BytesIO(image_file.read()) if hasattr(image_file, "read") else None
-                if buffer is None:
-                    raise ValidationError({"image": "Unsupported image source"})
-                buffer.name = getattr(image_file, "name", "receipt.jpg")
-                raw_text = extract_text_from_image(buffer, api_key)
-                if hasattr(buffer, "close"):
-                    buffer.close()
-            else:
-                raise ValidationError({"provider": "Unsupported provider"})
+            clova_url = os.environ.get("CLOVA_OCR_API_URL") or getattr(settings, "CLOVA_OCR_API_URL", "")
+            clova_secret = os.environ.get("CLOVA_OCR_SECRET") or getattr(settings, "CLOVA_OCR_SECRET", "")
+            if not clova_url or not clova_secret:
+                raise ValidationError({"detail": "Clova OCR environment not configured"})
+            b64_content = encode_file_to_base64(image_file)
+            response_payload = extract_text_clova(
+                b64_content,
+                api_url=clova_url,
+                secret=clova_secret,
+                image_format=image_format,
+            )
+            raw_text = response_payload.get("text", "")
+            raw_payload = response_payload.get("raw")
         except OCRServiceError as exc:
             return Response({"detail": str(exc)}, status=exc.status_code)
         finally:
@@ -119,7 +121,11 @@ class ReceiptOCRView(APIView):
 
             with db_transaction.atomic():
                 transaction.ocr_text = json.dumps(
-                    {"raw_text": raw_text, "fields": final_fields},
+                    {
+                        "raw_text": raw_text,
+                        "fields": final_fields,
+                        "raw_response": raw_payload,
+                    },
                     ensure_ascii=False,
                 )
                 transaction.save(update_fields=["ocr_text", "updated_at"])
@@ -140,7 +146,7 @@ class ReceiptOCRView(APIView):
                     "parsed": parsed_fields,
                     "final": final_fields,
                     "manual_overrides": manual_overrides,
-                    "provider": provider,
+                    "raw_response": raw_payload,
                 },
                 is_valid=is_valid,
                 notes=notes or "",
@@ -153,7 +159,7 @@ class ReceiptOCRView(APIView):
                 "fields": final_fields,
                 "stored": stored,
                 "source": source,
-                "provider": provider,
+                "raw_response": raw_payload,
             },
             status=status.HTTP_200_OK,
         )

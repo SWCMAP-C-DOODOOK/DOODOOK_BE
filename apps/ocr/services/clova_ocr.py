@@ -1,54 +1,90 @@
 import json
-import re
+import time
+import uuid
 from typing import Dict
 
 import requests
 
 from apps.ocr.services import OCRServiceError
 
-VISION_ENDPOINT = "https://vision.googleapis.com/v1/images:annotate"
 
+def extract_text_clova(
+    b64: str,
+    *,
+    api_url: str,
+    secret: str,
+    image_format: str = "jpg",
+    timeout: int = 8,
+) -> Dict[str, object]:
+    if not api_url or not secret:
+        raise OCRServiceError("Clova OCR configuration missing", status_code=500)
 
-def extract_text_base64(b64: str, *, api_key: str, timeout: int = 8) -> Dict[str, object]:
-    if not api_key:
-        raise OCRServiceError("Google Vision API key not configured", status_code=500)
+    headers = {
+        "Content-Type": "application/json; charset=UTF-8",
+        "X-OCR-SECRET": secret,
+    }
 
-    url = f"{VISION_ENDPOINT}?key={api_key}"
     payload = {
-        "requests": [
+        "version": "V2",
+        "requestId": str(uuid.uuid4()),
+        "timestamp": int(time.time() * 1000),
+        "lang": "ko",
+        "images": [
             {
-                "image": {"content": b64},
-                "features": [{"type": "TEXT_DETECTION"}],
+                "name": "receipt",
+                "format": (image_format or "jpg").lower(),
+                "data": b64,
             }
-        ]
+        ],
     }
 
     try:
-        response = requests.post(url, json=payload, timeout=timeout)
+        response = requests.post(api_url, headers=headers, data=json.dumps(payload), timeout=timeout)
     except requests.Timeout as exc:
-        raise OCRServiceError("Google Vision request timed out", status_code=504) from exc
+        raise OCRServiceError("Clova OCR request timed out", status_code=504) from exc
     except requests.RequestException as exc:
-        raise OCRServiceError(f"Google Vision request failed: {exc}") from exc
+        raise OCRServiceError(f"Clova OCR request failed: {exc}") from exc
 
     if response.status_code >= 500:
-        raise OCRServiceError("Google Vision service unavailable", status_code=502)
+        raise OCRServiceError("Clova OCR service unavailable", status_code=502)
     if response.status_code >= 400:
-        raise OCRServiceError(response.text or "Google Vision request rejected", status_code=400)
+        raise OCRServiceError(response.text or "Clova OCR request rejected", status_code=400)
 
     try:
         data = response.json()
     except json.JSONDecodeError as exc:
-        raise OCRServiceError("Invalid response from Google Vision", status_code=502) from exc
+        raise OCRServiceError("Invalid response from Clova OCR", status_code=502) from exc
 
-    text = ""
-    try:
-        responses = data.get("responses", [])
-        if responses:
-            text = responses[0].get("fullTextAnnotation", {}).get("text", "")
-    except AttributeError:
-        text = ""
+    text_lines = _collect_lines(data)
+    text = "\n".join(text_lines).strip()
 
-    return {"text": text or "", "raw": data}
+    return {"text": text, "raw": data, "lines": text_lines}
+
+
+def _collect_lines(payload: Dict[str, object]) -> list[str]:
+    images = payload.get("images", []) if isinstance(payload, dict) else []
+    if not images:
+        return []
+
+    fields = images[0].get("fields", []) if isinstance(images[0], dict) else []
+    if not isinstance(fields, list):
+        return []
+
+    lines = []
+    current = []
+    for field in fields:
+        if not isinstance(field, dict):
+            continue
+        text = field.get("inferText")
+        if not text:
+            continue
+        current.append(text)
+        if field.get("lineBreak"):
+            lines.append(" ".join(current))
+            current = []
+    if current:
+        lines.append(" ".join(current))
+    return lines
 
 
 def _pick_merchant(lines):
@@ -59,7 +95,7 @@ def _pick_merchant(lines):
         lower = normalized.lower()
         if any(keyword in lower for keyword in ["승인", "금액", "카드", "거래", "현금", "합계", "원"]):
             continue
-        if re.search(r"\d", normalized):
+        if any(ch.isdigit() for ch in normalized):
             continue
         return normalized
     return None
@@ -71,6 +107,8 @@ def parse_receipt(text: str) -> Dict[str, object]:
 
     lines = [line.strip() for line in text.splitlines()]
     blob = " ".join(lines)
+
+    import re
 
     date_match = re.search(r"(20\d{2})[./-](\d{1,2})[./-](\d{1,2})", blob)
     date_value = None

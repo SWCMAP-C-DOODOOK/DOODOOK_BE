@@ -12,18 +12,14 @@ _package = import_module("apps.common.models.__init__")
 
 TimeStampedModel = _package.TimeStampedModel
 Payment = _package.Payment
-Budget = _package.Budget
 Transaction = _package.Transaction
-OpenBankingAccount = _package.OpenBankingAccount
 OcrValidationLog = _package.OcrValidationLog
 OcrApproval = _package.OcrApproval
 
 __all__ = [
     "TimeStampedModel",
     "Payment",
-    "Budget",
     "Transaction",
-    "OpenBankingAccount",
     "OcrValidationLog",
     "OcrApproval",
 ]
