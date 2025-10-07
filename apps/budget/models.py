@@ -13,10 +13,3 @@ class Budget(TimeStampedModel):
 
     def __str__(self) -> str:
         return f"{self.name} / {self.allocated_amount:,}원"
-
-    class Meta:
-        constraints = [
-            models.UniqueConstraint(fields=["name"], name="uq_budget_name"),
-        ]
-        ordering = ["name"]
-        db_table = "common_budget"

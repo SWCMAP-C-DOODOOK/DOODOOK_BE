@@ -1,0 +1,9 @@
+{
+  "fintech_use_num": "STUB123456",
+  "account": {
+    "alias": "Demo Checking",
+    "bank_name": "Sandbox Bank"
+  },
+  "balance_amt": "1000000",
+  "currency": "KRW"
+}

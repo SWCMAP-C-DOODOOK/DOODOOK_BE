@@ -1,7 +1,8 @@
 # moved from apps/common/views/openbanking.py
+from django.conf import settings
 from rest_framework import status, viewsets
 from rest_framework.exceptions import PermissionDenied
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
@@ -9,10 +10,27 @@ from apps.common.permissions import IsAdminOrReadOnly
 from apps.openbanking.models import OpenBankingAccount
 from apps.openbanking.serializers import (
     OpenBankingAccountSerializer,
+    OpenBankingAuthCallbackSerializer,
     OpenBankingBalanceQuerySerializer,
     OpenBankingTransactionQuerySerializer,
 )
 from apps.openbanking.services import fetch_balance, fetch_transactions
+
+
+class OpenBankingCallbackView(APIView):
+    permission_classes = [AllowAny]
+
+    def get(self, request):
+        serializer = OpenBankingAuthCallbackSerializer(data=request.query_params)
+        serializer.is_valid(raise_exception=True)
+        validated = serializer.validated_data
+        response = {
+            "code": validated["code"],
+            "state": validated.get("state"),
+            "scope": validated.get("scope"),
+            "redirect_uri": getattr(settings, "OPENBANKING_REDIRECT_URI", ""),
+        }
+        return Response(response, status=status.HTTP_200_OK)
 
 
 class OpenBankingAccountViewSet(viewsets.ModelViewSet):
@@ -29,7 +47,21 @@ class OpenBankingAccountViewSet(viewsets.ModelViewSet):
         return queryset.filter(enabled=True)
 
 
-class OpenBankingBalanceView(APIView):
+class _AdminOnlyMixin:
+    @staticmethod
+    def _require_admin(user) -> None:
+        if getattr(user, "is_staff", False) or getattr(user, "role", None) == "admin":
+            return
+        raise PermissionDenied("Admin access required in demo mode")
+
+    @staticmethod
+    def _account_payload(account):
+        if not account:
+            return {"alias": None, "bank_name": None}
+        return {"alias": account.alias, "bank_name": account.bank_name}
+
+
+class OpenBankingBalanceView(_AdminOnlyMixin, APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
@@ -41,24 +73,17 @@ class OpenBankingBalanceView(APIView):
         if account and not account.enabled:
             raise PermissionDenied("Account is disabled")
 
-        data = fetch_balance(fintech_use_num)
+        self._require_admin(request.user)
+        payload = fetch_balance(fintech_use_num)
+        payload["account"] = self._account_payload(account)
+
         debug = request.query_params.get("debug") == "1"
-        response = {
-            "fintech_use_num": fintech_use_num,
-            "account": {
-                "alias": getattr(account, "alias", None),
-                "bank_name": getattr(account, "bank_name", None),
-            }
-            if account
-            else None,
-            "balance": data.get("balance_amt"),
-            "currency": data.get("currency"),
-            "raw": data if debug else None,
-        }
-        return Response(response, status=status.HTTP_200_OK)
+        if not debug:
+            payload["raw"] = None
+        return Response(payload, status=status.HTTP_200_OK)
 
 
-class OpenBankingTransactionsView(APIView):
+class OpenBankingTransactionsView(_AdminOnlyMixin, APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
@@ -66,35 +91,23 @@ class OpenBankingTransactionsView(APIView):
         serializer.is_valid(raise_exception=True)
         validated = serializer.validated_data
         fintech_use_num = validated["fintech_use_num"]
-        from_date = validated["from_date"]
-        to_date = validated["to_date"]
-        sort = validated["sort"]
-        page = validated["page"]
-        size = validated["size"]
 
         account = OpenBankingAccount.objects.filter(fintech_use_num=fintech_use_num).first()
         if account and not account.enabled:
             raise PermissionDenied("Account is disabled")
 
-        data = fetch_transactions(
+        self._require_admin(request.user)
+        payload = fetch_transactions(
             fintech_use_num,
-            from_date,
-            to_date,
-            sort=sort,
-            page=page,
-            size=size,
+            validated["from_date"],
+            validated["to_date"],
+            sort=validated["sort"],
+            page=validated["page"],
+            size=validated["size"],
         )
+        payload["account"] = self._account_payload(account)
 
-        transactions = data.get("res_list") or data.get("list") or []
         debug = request.query_params.get("debug") == "1"
-        response = {
-            "fintech_use_num": fintech_use_num,
-            "range": {"from": from_date, "to": to_date},
-            "sort": sort,
-            "page": page,
-            "size": size,
-            "list": transactions,
-            "raw": data if debug else None,
-        }
-        # TODO: integrate transactions into internal ledger (sync mechanism)
-        return Response(response, status=status.HTTP_200_OK)
+        if not debug:
+            payload["raw"] = None
+        return Response(payload, status=status.HTTP_200_OK)

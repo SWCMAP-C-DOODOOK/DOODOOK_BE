@@ -12,17 +12,19 @@ class Migration(migrations.Migration):
 
     operations = [
         migrations.CreateModel(
-            name='Budget',
+            name='DuesReminder',
             fields=[
                 ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
                 ('created_at', models.DateTimeField(auto_now_add=True)),
                 ('updated_at', models.DateTimeField(auto_now=True)),
-                ('name', models.CharField(max_length=50)),
-                ('allocated_amount', models.PositiveIntegerField()),
-                ('description', models.CharField(blank=True, max_length=255, null=True)),
+                ('channel', models.CharField(choices=[('app', 'app'), ('email', 'email'), ('sms', 'sms')], max_length=16)),
+                ('scheduled_at', models.DateTimeField()),
+                ('sent_at', models.DateTimeField(blank=True, null=True)),
+                ('status', models.CharField(choices=[('pending', 'pending'), ('sent', 'sent'), ('failed', 'failed')], default='pending', max_length=16)),
+                ('payload_json', models.JSONField(default=dict)),
             ],
             options={
-                'abstract': False,
+                'ordering': ['-scheduled_at', '-created_at'],
             },
         ),
     ]

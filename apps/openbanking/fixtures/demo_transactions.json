@@ -1,0 +1,28 @@
+{
+  "list": [
+    {
+      "tran_id": "202503010001",
+      "time": "2025-03-01T09:15:00",
+      "summary": "Coffee",
+      "amount": "4500",
+      "balance": "995500",
+      "inout": "D"
+    },
+    {
+      "tran_id": "202503050002",
+      "time": "2025-03-05T12:40:00",
+      "summary": "Salary",
+      "amount": "3000000",
+      "balance": "3995500",
+      "inout": "C"
+    },
+    {
+      "tran_id": "202503090003",
+      "time": "2025-03-09T18:20:00",
+      "summary": "Restaurant",
+      "amount": "58000",
+      "balance": "3937500",
+      "inout": "D"
+    }
+  ]
+}

@@ -38,7 +38,4 @@ class UserProfile(TimeStampedModel):
     def __str__(self):
         return f"Profile<{self.user_id}:{self.nickname or self.user.username}>"
 
-    class Meta:
-        db_table = "user_profile"
-
 # migration 필요

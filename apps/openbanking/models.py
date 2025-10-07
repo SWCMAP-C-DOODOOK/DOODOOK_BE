@@ -15,7 +15,3 @@ class OpenBankingAccount(TimeStampedModel):
 
     def __str__(self) -> str:
         return f"{self.alias}({self.fintech_use_num})"
-
-    class Meta:
-        ordering = ["alias"]
-        db_table = "common_openbankingaccount"

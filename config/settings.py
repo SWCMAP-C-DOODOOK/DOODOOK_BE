@@ -225,9 +225,18 @@ SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https') if _get_bool('USE_
 
 
 # OpenBanking configuration
-OPENBANKING_BASE_URL = os.environ.get('OPENBANKING_BASE_URL', '')
+OPENBANKING_BASE_URL = os.environ.get('OPENBANKING_BASE_URL', 'https://testapi.openbanking.or.kr')
 OPENBANKING_ACCESS_TOKEN = os.environ.get('OPENBANKING_ACCESS_TOKEN', '')
-OPENBANKING_TIMEOUT = int(os.environ.get('OPENBANKING_TIMEOUT', '10'))
+OPENBANKING_TIMEOUT = int(os.environ.get('OPENBANKING_TIMEOUT', '6'))
+OPENBANKING_RETRIES = int(os.environ.get('OPENBANKING_RETRIES', '2'))
+OPENBANKING_RL = int(os.environ.get('OPENBANKING_RL', '5'))
+OPENBANKING_CLIENT_ID = os.environ.get('OPENBANKING_CLIENT_ID', '')
+OPENBANKING_CLIENT_SECRET = os.environ.get('OPENBANKING_CLIENT_SECRET', '')
+OPENBANKING_CLIENT_USE_CODE = os.environ.get('OPENBANKING_CLIENT_USE_CODE', '')
+OPENBANKING_REDIRECT_URI = os.environ.get('OPENBANKING_REDIRECT_URI', '')
+OPENBANKING_SCOPE = os.environ.get('OPENBANKING_SCOPE', 'oob')
+OPENBANKING_TOKEN_PATH = os.environ.get('OPENBANKING_TOKEN_PATH', '/oauth/2.0/token')
+OPENBANKING_SANDBOX = _get_bool('OPENBANKING_SANDBOX', True)
 # TODO: add structured logging / retry policy for OpenBanking client
 
 
