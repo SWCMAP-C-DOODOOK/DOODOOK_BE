@@ -39,7 +39,9 @@ def extract_text_clova(
     }
 
     try:
-        response = requests.post(api_url, headers=headers, data=json.dumps(payload), timeout=timeout)
+        response = requests.post(
+            api_url, headers=headers, data=json.dumps(payload), timeout=timeout
+        )
     except requests.Timeout as exc:
         raise OCRServiceError("Clova OCR request timed out", status_code=504) from exc
     except requests.RequestException as exc:
@@ -48,12 +50,16 @@ def extract_text_clova(
     if response.status_code >= 500:
         raise OCRServiceError("Clova OCR service unavailable", status_code=502)
     if response.status_code >= 400:
-        raise OCRServiceError(response.text or "Clova OCR request rejected", status_code=400)
+        raise OCRServiceError(
+            response.text or "Clova OCR request rejected", status_code=400
+        )
 
     try:
         data = response.json()
     except json.JSONDecodeError as exc:
-        raise OCRServiceError("Invalid response from Clova OCR", status_code=502) from exc
+        raise OCRServiceError(
+            "Invalid response from Clova OCR", status_code=502
+        ) from exc
 
     text_lines = _collect_lines(data)
     text = "\n".join(text_lines).strip()
@@ -93,7 +99,10 @@ def _pick_merchant(lines):
         if not normalized:
             continue
         lower = normalized.lower()
-        if any(keyword in lower for keyword in ["승인", "금액", "카드", "거래", "현금", "합계", "원"]):
+        if any(
+            keyword in lower
+            for keyword in ["승인", "금액", "카드", "거래", "현금", "합계", "원"]
+        ):
             continue
         if any(ch.isdigit() for ch in normalized):
             continue
@@ -103,7 +112,13 @@ def _pick_merchant(lines):
 
 def parse_receipt(text: str) -> Dict[str, object]:
     if not text:
-        return {"date": None, "amount": None, "merchant": None, "pay_method": None, "approval_no": None}
+        return {
+            "date": None,
+            "amount": None,
+            "merchant": None,
+            "pay_method": None,
+            "approval_no": None,
+        }
 
     lines = [line.strip() for line in text.splitlines()]
     blob = " ".join(lines)
@@ -117,7 +132,10 @@ def parse_receipt(text: str) -> Dict[str, object]:
         date_value = f"{int(y):04d}-{int(m):02d}-{int(d):02d}"
 
     amount_value = None
-    amount_candidates = re.findall(r"(?:(?:KRW|₩|원)\s*)?([0-9]{1,3}(?:[,\s][0-9]{3})+|[0-9]+)(?=\s*(?:원|KRW|₩|$))", blob)
+    amount_candidates = re.findall(
+        r"(?:(?:KRW|₩|원)\s*)?([0-9]{1,3}(?:[,\s][0-9]{3})+|[0-9]+)(?=\s*(?:원|KRW|₩|$))",
+        blob,
+    )
     if amount_candidates:
         cleaned = amount_candidates[-1].replace(",", "").replace(" ", "")
         try:
@@ -126,13 +144,26 @@ def parse_receipt(text: str) -> Dict[str, object]:
             amount_value = None
 
     method_value = None
-    for keyword in ["카드", "현금", "계좌이체", "간편결제", "신용", "체크", "카카오페이", "네이버페이"]:
+    for keyword in [
+        "카드",
+        "현금",
+        "계좌이체",
+        "간편결제",
+        "신용",
+        "체크",
+        "카카오페이",
+        "네이버페이",
+    ]:
         if keyword in blob:
             method_value = keyword
             break
 
     approval_value = None
-    approval_match = re.search(r"(승인.?번호|approval\s*no\.?)[^0-9a-zA-Z]*([0-9A-Z-]{4,})", blob, flags=re.IGNORECASE)
+    approval_match = re.search(
+        r"(승인.?번호|approval\s*no\.?)[^0-9a-zA-Z]*([0-9A-Z-]{4,})",
+        blob,
+        flags=re.IGNORECASE,
+    )
     if approval_match:
         approval_value = approval_match.group(2)
 

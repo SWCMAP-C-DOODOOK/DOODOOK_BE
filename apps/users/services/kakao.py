@@ -2,7 +2,6 @@ import json
 
 import requests
 
-
 TOKEN_URL = "https://kauth.kakao.com/oauth/token"
 USER_ME_URL = "https://kapi.kakao.com/v2/user/me"
 

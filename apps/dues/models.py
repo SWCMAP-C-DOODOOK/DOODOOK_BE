@@ -24,7 +24,9 @@ class DuesReminder(TimeStampedModel):
     channel = models.CharField(max_length=16, choices=Channel.choices)
     scheduled_at = models.DateTimeField()
     sent_at = models.DateTimeField(blank=True, null=True)
-    status = models.CharField(max_length=16, choices=Status.choices, default=Status.PENDING)
+    status = models.CharField(
+        max_length=16, choices=Status.choices, default=Status.PENDING
+    )
     payload_json = models.JSONField(default=dict)
     created_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,

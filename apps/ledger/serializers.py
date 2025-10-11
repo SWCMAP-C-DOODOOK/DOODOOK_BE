@@ -70,7 +70,9 @@ class TransactionSerializer(serializers.ModelSerializer):
         if not value:
             return value
         max_bytes = getattr(settings, "RECEIPT_MAX_MB", 10) * 1024 * 1024
-        allowed_exts = getattr(settings, "RECEIPT_ALLOWED_EXTS", ["jpg", "jpeg", "png", "pdf"])
+        allowed_exts = getattr(
+            settings, "RECEIPT_ALLOWED_EXTS", ["jpg", "jpeg", "png", "pdf"]
+        )
         if hasattr(value, "size") and value.size > max_bytes:
             raise serializers.ValidationError("Receipt image exceeds maximum size")
         name = getattr(value, "name", "") or ""
@@ -94,10 +96,17 @@ class TransactionSerializer(serializers.ModelSerializer):
                 if self.instance:
                     qs = qs.exclude(pk=self.instance.pk)
                 for existing in qs[:5]:
-                    existing_norm = re.sub(r"\s+", "", (existing.description or "")).lower()
+                    existing_norm = re.sub(
+                        r"\s+", "", (existing.description or "")
+                    ).lower()
                     if existing_norm and existing_norm == normalized:
                         raise serializers.ValidationError(
-                            {"description": serializers.ValidationError("Duplicate transaction suspect", code="duplicate_suspect")}
+                            {
+                                "description": serializers.ValidationError(
+                                    "Duplicate transaction suspect",
+                                    code="duplicate_suspect",
+                                )
+                            }
                         )
         return attrs
 

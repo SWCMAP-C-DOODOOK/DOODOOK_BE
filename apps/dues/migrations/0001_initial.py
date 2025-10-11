@@ -7,24 +7,48 @@ class Migration(migrations.Migration):
 
     initial = True
 
-    dependencies = [
-    ]
+    dependencies = []
 
     operations = [
         migrations.CreateModel(
-            name='DuesReminder',
+            name="DuesReminder",
             fields=[
-                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('created_at', models.DateTimeField(auto_now_add=True)),
-                ('updated_at', models.DateTimeField(auto_now=True)),
-                ('channel', models.CharField(choices=[('app', 'app'), ('email', 'email'), ('sms', 'sms')], max_length=16)),
-                ('scheduled_at', models.DateTimeField()),
-                ('sent_at', models.DateTimeField(blank=True, null=True)),
-                ('status', models.CharField(choices=[('pending', 'pending'), ('sent', 'sent'), ('failed', 'failed')], default='pending', max_length=16)),
-                ('payload_json', models.JSONField(default=dict)),
+                (
+                    "id",
+                    models.BigAutoField(
+                        auto_created=True,
+                        primary_key=True,
+                        serialize=False,
+                        verbose_name="ID",
+                    ),
+                ),
+                ("created_at", models.DateTimeField(auto_now_add=True)),
+                ("updated_at", models.DateTimeField(auto_now=True)),
+                (
+                    "channel",
+                    models.CharField(
+                        choices=[("app", "app"), ("email", "email"), ("sms", "sms")],
+                        max_length=16,
+                    ),
+                ),
+                ("scheduled_at", models.DateTimeField()),
+                ("sent_at", models.DateTimeField(blank=True, null=True)),
+                (
+                    "status",
+                    models.CharField(
+                        choices=[
+                            ("pending", "pending"),
+                            ("sent", "sent"),
+                            ("failed", "failed"),
+                        ],
+                        default="pending",
+                        max_length=16,
+                    ),
+                ),
+                ("payload_json", models.JSONField(default=dict)),
             ],
             options={
-                'ordering': ['-scheduled_at', '-created_at'],
+                "ordering": ["-scheduled_at", "-created_at"],
             },
         ),
     ]

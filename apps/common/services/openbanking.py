@@ -8,7 +8,6 @@ from apps.openbanking.services import (  # noqa: F401
     get_headers,
 )
 
-
 __all__ = [
     "OpenBankingServiceError",
     "OpenBankingTimeoutError",

@@ -5,12 +5,13 @@ from rest_framework import serializers
 
 from apps.common.models import Payment
 
-
 User = get_user_model()
 
 
 class PaymentSerializer(serializers.ModelSerializer):
-    user_id = serializers.PrimaryKeyRelatedField(source="user", queryset=User.objects.all())
+    user_id = serializers.PrimaryKeyRelatedField(
+        source="user", queryset=User.objects.all()
+    )
     is_paid = serializers.BooleanField(required=False, default=True)
 
     class Meta:
@@ -41,7 +42,13 @@ class PaymentSerializer(serializers.ModelSerializer):
                 defaults=defaults,
             )
         except IntegrityError as exc:
-            raise serializers.ValidationError({"non_field_errors": ["Payment entry already exists for the specified user/month."]}) from exc
+            raise serializers.ValidationError(
+                {
+                    "non_field_errors": [
+                        "Payment entry already exists for the specified user/month."
+                    ]
+                }
+            ) from exc
         self.instance = instance
         self._created = created
         return instance
@@ -50,7 +57,13 @@ class PaymentSerializer(serializers.ModelSerializer):
         try:
             return super().update(instance, validated_data)
         except IntegrityError as exc:
-            raise serializers.ValidationError({"non_field_errors": ["Payment entry already exists for the specified user/month."]}) from exc
+            raise serializers.ValidationError(
+                {
+                    "non_field_errors": [
+                        "Payment entry already exists for the specified user/month."
+                    ]
+                }
+            ) from exc
 
 
 class DuesStatusSerializer(serializers.Serializer):

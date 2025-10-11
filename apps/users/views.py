@@ -3,8 +3,8 @@ from urllib.parse import urlencode
 
 from django.conf import settings
 from django.contrib.auth import get_user_model
-from django.shortcuts import get_object_or_404
 from django.http import HttpResponseRedirect
+from django.shortcuts import get_object_or_404
 from rest_framework import status, viewsets
 from rest_framework.exceptions import ValidationError
 from rest_framework.permissions import AllowAny, IsAuthenticated
@@ -20,7 +20,7 @@ from .services.kakao import KakaoServiceError, exchange_code_for_token, fetch_us
 
 
 class UserProfileViewSet(viewsets.ModelViewSet):
-    queryset = UserProfile.objects.select_related('user').all()
+    queryset = UserProfile.objects.select_related("user").all()
     serializer_class = UserProfileSerializer
     permission_classes = [IsAuthenticated]
 
@@ -36,28 +36,39 @@ class UserRoleUpdateAPIView(APIView):
     def patch(self, request, pk):
         user_model = get_user_model()
         target_user = get_object_or_404(user_model, pk=pk)
-        serializer = RoleUpdateSerializer(instance=target_user, data=request.data, partial=True)
+        serializer = RoleUpdateSerializer(
+            instance=target_user, data=request.data, partial=True
+        )
         serializer.is_valid(raise_exception=True)
         if "role" not in serializer.validated_data:
             raise ValidationError({"role": "Role value is required"})
         serializer.save()
         # TODO: enforce additional policies (e.g., prevent self-demotion) if required
         # TODO: audit log for role changes (who changed when)
-        return Response({
-            "id": target_user.id,
-            "username": target_user.get_username(),
-            "role": target_user.role,
-        })
+        return Response(
+            {
+                "id": target_user.id,
+                "username": target_user.get_username(),
+                "role": target_user.role,
+            }
+        )
 
 
 class KakaoLoginAPIView(APIView):
     permission_classes = [AllowAny]
 
     def get(self, request):
-        client_id = os.environ.get("KAKAO_REST_API_KEY") or getattr(settings, "KAKAO_REST_API_KEY", "")
-        redirect_uri = os.environ.get("KAKAO_REDIRECT_URI") or getattr(settings, "KAKAO_REDIRECT_URI", "")
+        client_id = os.environ.get("KAKAO_REST_API_KEY") or getattr(
+            settings, "KAKAO_REST_API_KEY", ""
+        )
+        redirect_uri = os.environ.get("KAKAO_REDIRECT_URI") or getattr(
+            settings, "KAKAO_REDIRECT_URI", ""
+        )
         if not client_id or not redirect_uri:
-            return Response({"detail": "Kakao OAuth environment not configured"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            return Response(
+                {"detail": "Kakao OAuth environment not configured"},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
 
         kakao_auth_url = "https://kauth.kakao.com/oauth/authorize?" + urlencode(
             {
@@ -73,8 +84,12 @@ class KakaoLoginAPIView(APIView):
         if not code:
             raise ValidationError({"code": "code is required"})
 
-        client_id = os.environ.get("KAKAO_REST_API_KEY") or getattr(settings, "KAKAO_REST_API_KEY", "")
-        redirect_uri = os.environ.get("KAKAO_REDIRECT_URI") or getattr(settings, "KAKAO_REDIRECT_URI", "")
+        client_id = os.environ.get("KAKAO_REST_API_KEY") or getattr(
+            settings, "KAKAO_REST_API_KEY", ""
+        )
+        redirect_uri = os.environ.get("KAKAO_REDIRECT_URI") or getattr(
+            settings, "KAKAO_REDIRECT_URI", ""
+        )
         if not client_id or not redirect_uri:
             raise ValidationError({"detail": "Kakao OAuth environment not configured"})
 
@@ -89,7 +104,10 @@ class KakaoLoginAPIView(APIView):
 
         access_token = token_payload.get("access_token")
         if not access_token:
-            return Response({"detail": "access_token missing in Kakao response"}, status=status.HTTP_502_BAD_GATEWAY)
+            return Response(
+                {"detail": "access_token missing in Kakao response"},
+                status=status.HTTP_502_BAD_GATEWAY,
+            )
 
         try:
             kakao_user = fetch_user_me(access_token)
@@ -98,7 +116,10 @@ class KakaoLoginAPIView(APIView):
 
         kakao_id = kakao_user.get("id")
         if kakao_id is None:
-            return Response({"detail": "kakao user id not found"}, status=status.HTTP_502_BAD_GATEWAY)
+            return Response(
+                {"detail": "kakao user id not found"},
+                status=status.HTTP_502_BAD_GATEWAY,
+            )
 
         kakao_account = kakao_user.get("kakao_account") or {}
         email = kakao_account.get("email")
@@ -144,12 +165,21 @@ class KakaoCallbackAPIView(APIView):
         if error:
             return Response({"detail": error}, status=status.HTTP_400_BAD_REQUEST)
         if not code:
-            return Response({"detail": "code is required"}, status=status.HTTP_400_BAD_REQUEST)
+            return Response(
+                {"detail": "code is required"}, status=status.HTTP_400_BAD_REQUEST
+            )
 
-        client_id = os.environ.get("KAKAO_REST_API_KEY") or getattr(settings, "KAKAO_REST_API_KEY", "")
-        redirect_uri = os.environ.get("KAKAO_REDIRECT_URI") or getattr(settings, "KAKAO_REDIRECT_URI", "")
+        client_id = os.environ.get("KAKAO_REST_API_KEY") or getattr(
+            settings, "KAKAO_REST_API_KEY", ""
+        )
+        redirect_uri = os.environ.get("KAKAO_REDIRECT_URI") or getattr(
+            settings, "KAKAO_REDIRECT_URI", ""
+        )
         if not client_id or not redirect_uri:
-            return Response({"detail": "Kakao OAuth environment not configured"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            return Response(
+                {"detail": "Kakao OAuth environment not configured"},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
 
         try:
             token_payload = exchange_code_for_token(
@@ -162,7 +192,10 @@ class KakaoCallbackAPIView(APIView):
 
         access_token = token_payload.get("access_token")
         if not access_token:
-            return Response({"detail": "access_token missing in Kakao response"}, status=status.HTTP_502_BAD_GATEWAY)
+            return Response(
+                {"detail": "access_token missing in Kakao response"},
+                status=status.HTTP_502_BAD_GATEWAY,
+            )
 
         try:
             kakao_user = fetch_user_me(access_token)
@@ -171,7 +204,10 @@ class KakaoCallbackAPIView(APIView):
 
         kakao_id = kakao_user.get("id")
         if kakao_id is None:
-            return Response({"detail": "kakao user id not found"}, status=status.HTTP_502_BAD_GATEWAY)
+            return Response(
+                {"detail": "kakao user id not found"},
+                status=status.HTTP_502_BAD_GATEWAY,
+            )
 
         kakao_account = kakao_user.get("kakao_account") or {}
         email = kakao_account.get("email")
@@ -194,9 +230,8 @@ class KakaoCallbackAPIView(APIView):
         refresh = RefreshToken.for_user(user)
 
         # 준비된 프런트엔드 리다이렉션 URL
-        redirect_base = (
-            os.environ.get("KAKAO_LOGIN_REDIRECT_URL")
-            or getattr(settings, "KAKAO_LOGIN_REDIRECT_URL", None)
+        redirect_base = os.environ.get("KAKAO_LOGIN_REDIRECT_URL") or getattr(
+            settings, "KAKAO_LOGIN_REDIRECT_URL", None
         )
 
         if not redirect_base:

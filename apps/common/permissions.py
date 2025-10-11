@@ -37,4 +37,3 @@ class IsOwnerOrAdmin(BasePermission):
             return True
         owner = getattr(obj, "user", None)
         return owner == user
-

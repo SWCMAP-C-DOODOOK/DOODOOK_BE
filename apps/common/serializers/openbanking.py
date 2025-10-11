@@ -5,7 +5,6 @@ from apps.openbanking.serializers import (  # noqa: F401
     OpenBankingTransactionQuerySerializer,
 )
 
-
 __all__ = [
     "OpenBankingAccountSerializer",
     "OpenBankingBalanceQuerySerializer",

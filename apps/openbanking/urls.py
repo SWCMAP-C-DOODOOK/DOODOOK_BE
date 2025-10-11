@@ -9,12 +9,17 @@ from apps.openbanking.views import (
     OpenBankingTransactionsView,
 )
 
-
 router = DefaultRouter()
-router.register(r"openbanking/accounts", OpenBankingAccountViewSet, basename="ob-accounts")
+router.register(
+    r"openbanking/accounts", OpenBankingAccountViewSet, basename="ob-accounts"
+)
 
 urlpatterns = [
-    path("openbanking/callback", OpenBankingCallbackView.as_view(), name="openbanking-callback"),
+    path(
+        "openbanking/callback",
+        OpenBankingCallbackView.as_view(),
+        name="openbanking-callback",
+    ),
     path("openbanking/balance", OpenBankingBalanceView.as_view()),
     path("openbanking/transactions", OpenBankingTransactionsView.as_view()),
 ]

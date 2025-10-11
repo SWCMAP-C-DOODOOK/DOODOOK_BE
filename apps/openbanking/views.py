@@ -69,7 +69,9 @@ class OpenBankingBalanceView(_AdminOnlyMixin, APIView):
         serializer.is_valid(raise_exception=True)
         fintech_use_num = serializer.validated_data["fintech_use_num"]
 
-        account = OpenBankingAccount.objects.filter(fintech_use_num=fintech_use_num).first()
+        account = OpenBankingAccount.objects.filter(
+            fintech_use_num=fintech_use_num
+        ).first()
         if account and not account.enabled:
             raise PermissionDenied("Account is disabled")
 
@@ -92,7 +94,9 @@ class OpenBankingTransactionsView(_AdminOnlyMixin, APIView):
         validated = serializer.validated_data
         fintech_use_num = validated["fintech_use_num"]
 
-        account = OpenBankingAccount.objects.filter(fintech_use_num=fintech_use_num).first()
+        account = OpenBankingAccount.objects.filter(
+            fintech_use_num=fintech_use_num
+        ).first()
         if account and not account.enabled:
             raise PermissionDenied("Account is disabled")
 

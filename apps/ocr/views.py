@@ -8,8 +8,8 @@ from django.db import transaction as db_transaction
 from django.shortcuts import get_object_or_404
 from rest_framework import status
 from rest_framework.exceptions import ValidationError
-from rest_framework.permissions import IsAuthenticated
 from rest_framework.parsers import FormParser, JSONParser, MultiPartParser
+from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
@@ -25,14 +25,24 @@ class ReceiptOCRView(APIView):
     parser_classes = [MultiPartParser, FormParser, JSONParser]
 
     def post(self, request):
-        data = request.data.copy() if hasattr(request.data, "copy") else dict(request.data)
-        for key in ("transaction_id", "store", "overwrite", "manual_overrides", "notes"):
+        data = (
+            request.data.copy() if hasattr(request.data, "copy") else dict(request.data)
+        )
+        for key in (
+            "transaction_id",
+            "store",
+            "overwrite",
+            "manual_overrides",
+            "notes",
+        ):
             if key not in data and key in request.query_params:
                 data[key] = request.query_params[key]
 
         uploaded_image = request.FILES.get("image")
         has_image = bool(uploaded_image)
-        serializer = ReceiptOCRRequestSerializer(data=data, context={"has_image": has_image})
+        serializer = ReceiptOCRRequestSerializer(
+            data=data, context={"has_image": has_image}
+        )
         serializer.is_valid(raise_exception=True)
         validated = serializer.validated_data
 
@@ -53,10 +63,15 @@ class ReceiptOCRView(APIView):
                 raise ValidationError({"image": "Only image files are supported"})
 
         if transaction_id:
-            transaction = get_object_or_404(Transaction.objects.select_related("user"), pk=transaction_id)
+            transaction = get_object_or_404(
+                Transaction.objects.select_related("user"), pk=transaction_id
+            )
             if not has_image:
                 if not transaction.receipt_image:
-                    return Response({"detail": "Receipt image not found for transaction"}, status=status.HTTP_400_BAD_REQUEST)
+                    return Response(
+                        {"detail": "Receipt image not found for transaction"},
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
                 image_file = transaction.receipt_image
                 source = "transaction"
 
@@ -74,10 +89,16 @@ class ReceiptOCRView(APIView):
         raw_payload = None
 
         try:
-            clova_url = os.environ.get("CLOVA_OCR_API_URL") or getattr(settings, "CLOVA_OCR_API_URL", "")
-            clova_secret = os.environ.get("CLOVA_OCR_SECRET") or getattr(settings, "CLOVA_OCR_SECRET", "")
+            clova_url = os.environ.get("CLOVA_OCR_API_URL") or getattr(
+                settings, "CLOVA_OCR_API_URL", ""
+            )
+            clova_secret = os.environ.get("CLOVA_OCR_SECRET") or getattr(
+                settings, "CLOVA_OCR_SECRET", ""
+            )
             if not clova_url or not clova_secret:
-                raise ValidationError({"detail": "Clova OCR environment not configured"})
+                raise ValidationError(
+                    {"detail": "Clova OCR environment not configured"}
+                )
             b64_content = encode_file_to_base64(image_file)
             response_payload = extract_text_clova(
                 b64_content,
@@ -112,12 +133,25 @@ class ReceiptOCRView(APIView):
         stored = False
         if store:
             if not transaction:
-                return Response({"detail": "transaction_id is required to store OCR text"}, status=status.HTTP_400_BAD_REQUEST)
-            is_admin_role = getattr(request.user, "role", None) == "admin" or getattr(request.user, "is_staff", False)
+                return Response(
+                    {"detail": "transaction_id is required to store OCR text"},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            is_admin_role = getattr(request.user, "role", None) == "admin" or getattr(
+                request.user, "is_staff", False
+            )
             if not (is_admin_role or transaction.user_id == request.user.id):
-                return Response({"detail": "Not authorized to store OCR result"}, status=status.HTTP_403_FORBIDDEN)
+                return Response(
+                    {"detail": "Not authorized to store OCR result"},
+                    status=status.HTTP_403_FORBIDDEN,
+                )
             if transaction.ocr_text and not overwrite:
-                return Response({"detail": "OCR text already exists. Pass overwrite=true to replace."}, status=status.HTTP_409_CONFLICT)
+                return Response(
+                    {
+                        "detail": "OCR text already exists. Pass overwrite=true to replace."
+                    },
+                    status=status.HTTP_409_CONFLICT,
+                )
 
             with db_transaction.atomic():
                 transaction.ocr_text = json.dumps(
@@ -129,12 +163,22 @@ class ReceiptOCRView(APIView):
                     ensure_ascii=False,
                 )
                 transaction.save(update_fields=["ocr_text", "updated_at"])
-                approval, _created = OcrApproval.objects.get_or_create(transaction=transaction)
+                approval, _created = OcrApproval.objects.get_or_create(
+                    transaction=transaction
+                )
                 approval.status = OcrApproval.Status.PENDING
                 approval.reviewer = None
                 approval.decided_at = None
                 approval.notes = ""
-                approval.save(update_fields=["status", "reviewer", "decided_at", "notes", "updated_at"])
+                approval.save(
+                    update_fields=[
+                        "status",
+                        "reviewer",
+                        "decided_at",
+                        "notes",
+                        "updated_at",
+                    ]
+                )
             stored = True
 
         if transaction:
@@ -171,7 +215,9 @@ class _OcrApprovalMixin(APIView):
 
     def post(self, request, pk):
         transaction = get_object_or_404(Transaction, pk=pk)
-        data = request.data.copy() if hasattr(request.data, "copy") else dict(request.data)
+        data = (
+            request.data.copy() if hasattr(request.data, "copy") else dict(request.data)
+        )
         data["status"] = self.target_status
         serializer = OcrApprovalSerializer(data=data)
         serializer.is_valid(raise_exception=True)

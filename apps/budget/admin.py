@@ -26,13 +26,20 @@ class BudgetAdmin(admin.ModelAdmin):
         cached = getattr(obj, "_cached_used_amount", None)
         if cached is not None:
             return cached
-        direct = obj.transactions.filter(type=Transaction.TransactionType.EXPENSE).aggregate(total=Sum("amount")).get("total") or 0
+        direct = (
+            obj.transactions.filter(type=Transaction.TransactionType.EXPENSE)
+            .aggregate(total=Sum("amount"))
+            .get("total")
+            or 0
+        )
         category = (
             Transaction.objects.filter(
                 budget__isnull=True,
                 category=obj.name,
                 type=Transaction.TransactionType.EXPENSE,
-            ).aggregate(total=Sum("amount")).get("total")
+            )
+            .aggregate(total=Sum("amount"))
+            .get("total")
             or 0
         )
         obj._cached_used_amount = int(direct) + int(category)

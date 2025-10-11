@@ -55,7 +55,9 @@ class BudgetWriteSerializer(serializers.ModelSerializer):
 
     def validate_allocated_amount(self, value: int) -> int:
         if value is None or value <= 0:
-            raise serializers.ValidationError("allocated_amount must be greater than zero")
+            raise serializers.ValidationError(
+                "allocated_amount must be greater than zero"
+            )
         return value
 
     def validate_name(self, value: str) -> str:

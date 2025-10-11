@@ -5,7 +5,6 @@ from apps.common.views.dues import DuesStatusView, DuesUnpaidView, PaymentViewSe
 from apps.common.views.ledger import TransactionViewSet
 from apps.ocr.views import ReceiptOCRView
 
-
 router = DefaultRouter()
 router.register(r"dues/payments", PaymentViewSet, basename="payment")
 router.register(r"transactions", TransactionViewSet, basename="transaction")

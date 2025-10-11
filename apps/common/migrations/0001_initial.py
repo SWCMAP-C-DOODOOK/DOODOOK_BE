@@ -7,70 +7,121 @@ class Migration(migrations.Migration):
 
     initial = True
 
-    dependencies = [
-    ]
+    dependencies = []
 
     operations = [
         migrations.CreateModel(
-            name='OcrApproval',
+            name="OcrApproval",
             fields=[
-                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('created_at', models.DateTimeField(auto_now_add=True)),
-                ('updated_at', models.DateTimeField(auto_now=True)),
-                ('status', models.CharField(choices=[('pending', 'pending'), ('approved', 'approved'), ('rejected', 'rejected')], default='pending', max_length=16)),
-                ('decided_at', models.DateTimeField(blank=True, null=True)),
-                ('notes', models.TextField(blank=True)),
+                (
+                    "id",
+                    models.BigAutoField(
+                        auto_created=True,
+                        primary_key=True,
+                        serialize=False,
+                        verbose_name="ID",
+                    ),
+                ),
+                ("created_at", models.DateTimeField(auto_now_add=True)),
+                ("updated_at", models.DateTimeField(auto_now=True)),
+                (
+                    "status",
+                    models.CharField(
+                        choices=[
+                            ("pending", "pending"),
+                            ("approved", "approved"),
+                            ("rejected", "rejected"),
+                        ],
+                        default="pending",
+                        max_length=16,
+                    ),
+                ),
+                ("decided_at", models.DateTimeField(blank=True, null=True)),
+                ("notes", models.TextField(blank=True)),
             ],
             options={
-                'ordering': ['-updated_at'],
+                "ordering": ["-updated_at"],
             },
         ),
         migrations.CreateModel(
-            name='OcrValidationLog',
+            name="OcrValidationLog",
             fields=[
-                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('created_at', models.DateTimeField(auto_now_add=True)),
-                ('updated_at', models.DateTimeField(auto_now=True)),
-                ('extracted_json', models.JSONField()),
-                ('is_valid', models.BooleanField(default=False)),
-                ('notes', models.TextField(blank=True)),
+                (
+                    "id",
+                    models.BigAutoField(
+                        auto_created=True,
+                        primary_key=True,
+                        serialize=False,
+                        verbose_name="ID",
+                    ),
+                ),
+                ("created_at", models.DateTimeField(auto_now_add=True)),
+                ("updated_at", models.DateTimeField(auto_now=True)),
+                ("extracted_json", models.JSONField()),
+                ("is_valid", models.BooleanField(default=False)),
+                ("notes", models.TextField(blank=True)),
             ],
             options={
-                'ordering': ['-created_at'],
+                "ordering": ["-created_at"],
             },
         ),
         migrations.CreateModel(
-            name='Payment',
+            name="Payment",
             fields=[
-                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('created_at', models.DateTimeField(auto_now_add=True)),
-                ('updated_at', models.DateTimeField(auto_now=True)),
-                ('year', models.PositiveSmallIntegerField()),
-                ('month', models.PositiveSmallIntegerField()),
-                ('is_paid', models.BooleanField(default=True)),
-                ('amount', models.PositiveIntegerField(blank=True, null=True)),
-                ('paid_at', models.DateTimeField(auto_now_add=True)),
+                (
+                    "id",
+                    models.BigAutoField(
+                        auto_created=True,
+                        primary_key=True,
+                        serialize=False,
+                        verbose_name="ID",
+                    ),
+                ),
+                ("created_at", models.DateTimeField(auto_now_add=True)),
+                ("updated_at", models.DateTimeField(auto_now=True)),
+                ("year", models.PositiveSmallIntegerField()),
+                ("month", models.PositiveSmallIntegerField()),
+                ("is_paid", models.BooleanField(default=True)),
+                ("amount", models.PositiveIntegerField(blank=True, null=True)),
+                ("paid_at", models.DateTimeField(auto_now_add=True)),
             ],
             options={
-                'ordering': ['-year', '-month', 'user'],
+                "ordering": ["-year", "-month", "user"],
             },
         ),
         migrations.CreateModel(
-            name='Transaction',
+            name="Transaction",
             fields=[
-                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('created_at', models.DateTimeField(auto_now_add=True)),
-                ('updated_at', models.DateTimeField(auto_now=True)),
-                ('amount', models.PositiveIntegerField()),
-                ('description', models.CharField(max_length=255)),
-                ('date', models.DateField()),
-                ('type', models.CharField(choices=[('income', 'income'), ('expense', 'expense')], max_length=10)),
-                ('category', models.CharField(blank=True, max_length=50, null=True)),
-                ('receipt_image', models.ImageField(blank=True, null=True, upload_to='receipts/')),
-                ('ocr_text', models.TextField(blank=True, null=True)),
+                (
+                    "id",
+                    models.BigAutoField(
+                        auto_created=True,
+                        primary_key=True,
+                        serialize=False,
+                        verbose_name="ID",
+                    ),
+                ),
+                ("created_at", models.DateTimeField(auto_now_add=True)),
+                ("updated_at", models.DateTimeField(auto_now=True)),
+                ("amount", models.PositiveIntegerField()),
+                ("description", models.CharField(max_length=255)),
+                ("date", models.DateField()),
+                (
+                    "type",
+                    models.CharField(
+                        choices=[("income", "income"), ("expense", "expense")],
+                        max_length=10,
+                    ),
+                ),
+                ("category", models.CharField(blank=True, max_length=50, null=True)),
+                (
+                    "receipt_image",
+                    models.ImageField(blank=True, null=True, upload_to="receipts/"),
+                ),
+                ("ocr_text", models.TextField(blank=True, null=True)),
             ],
             options={
-                'ordering': ['-date', '-id'],
+                "ordering": ["-date", "-id"],
             },
         ),
     ]

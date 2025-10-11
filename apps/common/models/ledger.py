@@ -13,8 +13,16 @@ class Transaction(TimeStampedModel):
         INCOME = "income", "income"
         EXPENSE = "expense", "expense"
 
-    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="transactions")
-    budget = models.ForeignKey('budget.Budget', on_delete=models.SET_NULL, related_name="transactions", blank=True, null=True)
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="transactions"
+    )
+    budget = models.ForeignKey(
+        "budget.Budget",
+        on_delete=models.SET_NULL,
+        related_name="transactions",
+        blank=True,
+        null=True,
+    )
     amount = models.PositiveIntegerField()
     description = models.CharField(max_length=255)
     date = models.DateField()
@@ -39,8 +47,14 @@ class Transaction(TimeStampedModel):
 
 # migration 필요
 class OcrValidationLog(TimeStampedModel):
-    transaction = models.ForeignKey(Transaction, on_delete=models.CASCADE, related_name="ocr_validation_logs")
-    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="ocr_validation_logs")
+    transaction = models.ForeignKey(
+        Transaction, on_delete=models.CASCADE, related_name="ocr_validation_logs"
+    )
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="ocr_validation_logs",
+    )
     extracted_json = models.JSONField()
     is_valid = models.BooleanField(default=False)
     notes = models.TextField(blank=True)
@@ -56,9 +70,19 @@ class OcrApproval(TimeStampedModel):
         APPROVED = "approved", "approved"
         REJECTED = "rejected", "rejected"
 
-    transaction = models.OneToOneField(Transaction, on_delete=models.CASCADE, related_name="ocr_approval")
-    reviewer = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, related_name="ocr_approvals", null=True, blank=True)
-    status = models.CharField(max_length=16, choices=Status.choices, default=Status.PENDING)
+    transaction = models.OneToOneField(
+        Transaction, on_delete=models.CASCADE, related_name="ocr_approval"
+    )
+    reviewer = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        related_name="ocr_approvals",
+        null=True,
+        blank=True,
+    )
+    status = models.CharField(
+        max_length=16, choices=Status.choices, default=Status.PENDING
+    )
     decided_at = models.DateTimeField(blank=True, null=True)
     notes = models.TextField(blank=True)
 
@@ -70,4 +94,6 @@ class OcrApproval(TimeStampedModel):
         self.status = status
         self.notes = notes
         self.decided_at = timezone.now()
-        self.save(update_fields=["reviewer", "status", "notes", "decided_at", "updated_at"])
+        self.save(
+            update_fields=["reviewer", "status", "notes", "decided_at", "updated_at"]
+        )

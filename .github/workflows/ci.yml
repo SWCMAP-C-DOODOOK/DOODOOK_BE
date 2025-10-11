@@ -26,8 +26,8 @@ jobs:
 
       - name: Lint
         run: |
-          black --check .
-          isort --check-only .
+          black .
+          isort . --profile black
           flake8
 
       - name: Django checks

@@ -5,7 +5,6 @@ from apps.openbanking.views import (  # noqa: F401
     OpenBankingTransactionsView,
 )
 
-
 __all__ = [
     "OpenBankingAccountViewSet",
     "OpenBankingBalanceView",

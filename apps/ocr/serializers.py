@@ -7,7 +7,9 @@ from apps.common.models import OcrApproval
 class ReceiptOCRRequestSerializer(serializers.Serializer):
     transaction_id = serializers.IntegerField(required=False, min_value=1)
     image = serializers.ImageField(required=False, allow_null=True)
-    manual_overrides = serializers.DictField(child=serializers.CharField(), required=False)
+    manual_overrides = serializers.DictField(
+        child=serializers.CharField(), required=False
+    )
     notes = serializers.CharField(required=False, allow_blank=True)
     store = serializers.BooleanField(required=False, default=False)
     overwrite = serializers.BooleanField(required=False, default=False)
@@ -21,11 +23,15 @@ class ReceiptOCRRequestSerializer(serializers.Serializer):
             raise serializers.ValidationError("Provide transaction_id or upload image")
 
         if store and not transaction_id:
-            raise serializers.ValidationError("transaction_id is required when store=true")
+            raise serializers.ValidationError(
+                "transaction_id is required when store=true"
+            )
 
         return attrs
 
 
 class OcrApprovalSerializer(serializers.Serializer):
-    status = serializers.ChoiceField(choices=[OcrApproval.Status.APPROVED, OcrApproval.Status.REJECTED])
+    status = serializers.ChoiceField(
+        choices=[OcrApproval.Status.APPROVED, OcrApproval.Status.REJECTED]
+    )
     notes = serializers.CharField(required=False, allow_blank=True)

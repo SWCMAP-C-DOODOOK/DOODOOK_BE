@@ -11,8 +11,8 @@ from django.conf import settings
 from django.core.cache import cache
 from requests import Session
 from requests.adapters import HTTPAdapter
-from urllib3.util.retry import Retry
 from rest_framework.exceptions import APIException
+from urllib3.util.retry import Retry
 
 logger = logging.getLogger(__name__)
 
@@ -58,8 +58,13 @@ def mask_fintech(fintech_use_num: str) -> str:
 
 
 def get_config() -> Dict[str, Any]:
-    base_url = getattr(settings, "OPENBANKING_BASE_URL", "https://testapi.openbanking.or.kr").rstrip("/")
-    token_path = getattr(settings, "OPENBANKING_TOKEN_PATH", "/oauth/2.0/token") or "/oauth/2.0/token"
+    base_url = getattr(
+        settings, "OPENBANKING_BASE_URL", "https://testapi.openbanking.or.kr"
+    ).rstrip("/")
+    token_path = (
+        getattr(settings, "OPENBANKING_TOKEN_PATH", "/oauth/2.0/token")
+        or "/oauth/2.0/token"
+    )
     if not token_path.startswith("/"):
         token_path = f"/{token_path}"
 
@@ -104,7 +109,9 @@ def _enforce_rate_limit(fintech_use_num: str, limit: int) -> None:
         cache.set(bucket_key, 1, timeout=1)
         current = 1
     if current > limit:
-        logger.warning("OpenBanking rate limit exceeded for %s", mask_fintech(fintech_use_num))
+        logger.warning(
+            "OpenBanking rate limit exceeded for %s", mask_fintech(fintech_use_num)
+        )
         raise OpenBankingRateLimitError(OpenBankingRateLimitError.default_detail)
 
 
@@ -161,22 +168,32 @@ def _issue_access_token(config: Dict[str, Any]) -> Tuple[str, int]:
         raise OpenBankingServiceError(str(exc)) from exc
 
     if response.status_code == 401:
-        raise OpenBankingUnauthorizedError(response.text or OpenBankingUnauthorizedError.default_detail)
+        raise OpenBankingUnauthorizedError(
+            response.text or OpenBankingUnauthorizedError.default_detail
+        )
     if response.status_code >= 500:
-        raise OpenBankingUpstreamError(response.text or OpenBankingUpstreamError.default_detail)
+        raise OpenBankingUpstreamError(
+            response.text or OpenBankingUpstreamError.default_detail
+        )
     if response.status_code >= 400:
-        raise OpenBankingServiceError(response.text or "OpenBanking token request failed")
+        raise OpenBankingServiceError(
+            response.text or "OpenBanking token request failed"
+        )
 
     try:
         payload = response.json()
     except ValueError as exc:
         logger.exception("Invalid token JSON response: %s", response.text[:200])
-        raise OpenBankingServiceError("Invalid token response from OpenBanking") from exc
+        raise OpenBankingServiceError(
+            "Invalid token response from OpenBanking"
+        ) from exc
 
     token = payload.get("access_token")
     expires_in = payload.get("expires_in")
     if not token or not expires_in:
-        raise OpenBankingServiceError("Token response is missing access_token or expires_in")
+        raise OpenBankingServiceError(
+            "Token response is missing access_token or expires_in"
+        )
 
     try:
         expires_in = int(expires_in)
@@ -243,6 +260,11 @@ def _headers(token: str) -> Dict[str, str]:
     }
 
 
+def get_headers(token: Optional[str] = None) -> Dict[str, str]:
+    resolved = token or get_access_token()
+    return _headers(resolved)
+
+
 def _http(path: str, params: Dict[str, Any], config: Dict[str, Any]) -> Dict[str, Any]:
     session = _build_session(config["retries"])
     token = get_access_token()
@@ -255,25 +277,40 @@ def _http(path: str, params: Dict[str, Any], config: Dict[str, Any]) -> Dict[str
             timeout=(2, config["timeout"]),
         )
     except requests.Timeout as exc:
-        logger.warning("OpenBanking timeout fintech=%s", mask_fintech(params.get("fintech_use_num", "")))
+        logger.warning(
+            "OpenBanking timeout fintech=%s",
+            mask_fintech(params.get("fintech_use_num", "")),
+        )
         raise OpenBankingTimeoutError() from exc
     except requests.RequestException as exc:
-        logger.exception("OpenBanking request error fintech=%s", mask_fintech(params.get("fintech_use_num", "")))
+        logger.exception(
+            "OpenBanking request error fintech=%s",
+            mask_fintech(params.get("fintech_use_num", "")),
+        )
         raise OpenBankingServiceError(str(exc)) from exc
 
     if response.status_code == 401:
-        raise OpenBankingUnauthorizedError(response.text or OpenBankingUnauthorizedError.default_detail)
+        raise OpenBankingUnauthorizedError(
+            response.text or OpenBankingUnauthorizedError.default_detail
+        )
     if response.status_code == 429:
-        raise OpenBankingRateLimitError(response.text or OpenBankingRateLimitError.default_detail)
+        raise OpenBankingRateLimitError(
+            response.text or OpenBankingRateLimitError.default_detail
+        )
     if response.status_code >= 500:
-        raise OpenBankingUpstreamError(response.text or OpenBankingUpstreamError.default_detail)
+        raise OpenBankingUpstreamError(
+            response.text or OpenBankingUpstreamError.default_detail
+        )
     if response.status_code >= 400:
         raise OpenBankingServiceError(response.text or "OpenBanking request failed")
 
     try:
         return response.json()
     except ValueError as exc:
-        logger.exception("Invalid JSON from OpenBanking fintech=%s", mask_fintech(params.get("fintech_use_num", "")))
+        logger.exception(
+            "Invalid JSON from OpenBanking fintech=%s",
+            mask_fintech(params.get("fintech_use_num", "")),
+        )
         raise OpenBankingServiceError("Invalid response from OpenBanking") from exc
 
 
@@ -281,13 +318,17 @@ def _normalize_balance(fintech_use_num: str, data: Dict[str, Any]) -> Dict[str, 
     return {
         "fintech_use_num": fintech_use_num,
         "account": {"alias": None, "bank_name": None},
-        "balance": data.get("balance_amt") or data.get("balance") or data.get("balanceAmount"),
+        "balance": data.get("balance_amt")
+        or data.get("balance")
+        or data.get("balanceAmount"),
         "currency": data.get("currency") or data.get("currency_code", "KRW"),
         "raw": data,
     }
 
 
-def _normalize_transaction_items(items: Iterable[Dict[str, Any]]) -> List[Dict[str, Any]]:
+def _normalize_transaction_items(
+    items: Iterable[Dict[str, Any]],
+) -> List[Dict[str, Any]]:
     seen: Dict[str, Dict[str, Any]] = {}
     ordered: List[Dict[str, Any]] = []
     for item in items:
@@ -300,10 +341,18 @@ def _normalize_transaction_items(items: Iterable[Dict[str, Any]]) -> List[Dict[s
         normalized = {
             "tran_id": tran_id,
             "time": item.get("time") or item.get("tran_time") or item.get("tranDtime"),
-            "summary": item.get("summary") or item.get("description") or item.get("print_content"),
-            "amount": item.get("amount") or item.get("tran_amt") or item.get("tranAmount"),
-            "balance": item.get("balance") or item.get("balance_amt") or item.get("after_balance_amt"),
-            "inout": item.get("inout") or item.get("inout_type") or item.get("tran_type"),
+            "summary": item.get("summary")
+            or item.get("description")
+            or item.get("print_content"),
+            "amount": item.get("amount")
+            or item.get("tran_amt")
+            or item.get("tranAmount"),
+            "balance": item.get("balance")
+            or item.get("balance_amt")
+            or item.get("after_balance_amt"),
+            "inout": item.get("inout")
+            or item.get("inout_type")
+            or item.get("tran_type"),
         }
         if tran_id in seen:
             continue
@@ -342,7 +391,11 @@ def fetch_balance(fintech_use_num: str) -> Dict[str, Any]:
 
     config = get_config()
     _enforce_rate_limit(fintech, config["rate_limit"])
-    logger.info("OpenBanking balance fintech=%s sandbox=%s", mask_fintech(fintech), config["sandbox"])
+    logger.info(
+        "OpenBanking balance fintech=%s sandbox=%s",
+        mask_fintech(fintech),
+        config["sandbox"],
+    )
 
     if config["sandbox"]:
         stub = _load_fixture("demo_balance.json")
@@ -367,11 +420,17 @@ def fetch_transactions(
 ) -> Dict[str, Any]:
     fintech = fintech_use_num.strip()
     if not fintech:
-        raise OpenBankingServiceError("fintech_use_num is required for transaction lookup")
+        raise OpenBankingServiceError(
+            "fintech_use_num is required for transaction lookup"
+        )
 
     config = get_config()
     _enforce_rate_limit(fintech, config["rate_limit"])
-    logger.info("OpenBanking transactions fintech=%s sandbox=%s", mask_fintech(fintech), config["sandbox"])
+    logger.info(
+        "OpenBanking transactions fintech=%s sandbox=%s",
+        mask_fintech(fintech),
+        config["sandbox"],
+    )
 
     if config["sandbox"]:
         stub = _load_fixture("demo_transactions.json")

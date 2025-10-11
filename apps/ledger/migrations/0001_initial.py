@@ -9,22 +9,47 @@ class Migration(migrations.Migration):
     initial = True
 
     dependencies = [
-        ('common', '0001_initial'),
+        ("common", "0001_initial"),
     ]
 
     operations = [
         migrations.CreateModel(
-            name='LedgerAuditLog',
+            name="LedgerAuditLog",
             fields=[
-                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('created_at', models.DateTimeField(auto_now_add=True)),
-                ('updated_at', models.DateTimeField(auto_now=True)),
-                ('action', models.CharField(choices=[('create', 'create'), ('update', 'update'), ('delete', 'delete')], max_length=16)),
-                ('diff_json', models.JSONField(default=dict)),
-                ('transaction', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='audit_logs', to='common.transaction')),
+                (
+                    "id",
+                    models.BigAutoField(
+                        auto_created=True,
+                        primary_key=True,
+                        serialize=False,
+                        verbose_name="ID",
+                    ),
+                ),
+                ("created_at", models.DateTimeField(auto_now_add=True)),
+                ("updated_at", models.DateTimeField(auto_now=True)),
+                (
+                    "action",
+                    models.CharField(
+                        choices=[
+                            ("create", "create"),
+                            ("update", "update"),
+                            ("delete", "delete"),
+                        ],
+                        max_length=16,
+                    ),
+                ),
+                ("diff_json", models.JSONField(default=dict)),
+                (
+                    "transaction",
+                    models.ForeignKey(
+                        on_delete=django.db.models.deletion.CASCADE,
+                        related_name="audit_logs",
+                        to="common.transaction",
+                    ),
+                ),
             ],
             options={
-                'ordering': ['-created_at'],
+                "ordering": ["-created_at"],
             },
         ),
     ]

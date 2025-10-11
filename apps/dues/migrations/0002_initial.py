@@ -10,19 +10,29 @@ class Migration(migrations.Migration):
     initial = True
 
     dependencies = [
-        ('dues', '0001_initial'),
+        ("dues", "0001_initial"),
         migrations.swappable_dependency(settings.AUTH_USER_MODEL),
     ]
 
     operations = [
         migrations.AddField(
-            model_name='duesreminder',
-            name='created_by',
-            field=models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.SET_NULL, related_name='dues_reminders_created', to=settings.AUTH_USER_MODEL),
+            model_name="duesreminder",
+            name="created_by",
+            field=models.ForeignKey(
+                blank=True,
+                null=True,
+                on_delete=django.db.models.deletion.SET_NULL,
+                related_name="dues_reminders_created",
+                to=settings.AUTH_USER_MODEL,
+            ),
         ),
         migrations.AddField(
-            model_name='duesreminder',
-            name='target_user',
-            field=models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='dues_reminders', to=settings.AUTH_USER_MODEL),
+            model_name="duesreminder",
+            name="target_user",
+            field=models.ForeignKey(
+                on_delete=django.db.models.deletion.CASCADE,
+                related_name="dues_reminders",
+                to=settings.AUTH_USER_MODEL,
+            ),
         ),
     ]

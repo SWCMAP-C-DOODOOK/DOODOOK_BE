@@ -17,7 +17,9 @@ class CategoryShareStatsView(APIView):
         start = request.query_params.get("start")
         end = request.query_params.get("end")
         if not start or not end:
-            return Response({"detail": "start and end are required as YYYY-MM"}, status=400)
+            return Response(
+                {"detail": "start and end are required as YYYY-MM"}, status=400
+            )
 
         try:
             start_year, start_month = [int(part) for part in start.split("-")]
@@ -48,9 +50,13 @@ class CategoryShareStatsView(APIView):
             category = item["category"] or "Uncategorized"
             amount = int(item["total"] or 0)
             percent = (amount / total_amount * 100) if total_amount else 0
-            results.append({"category": category, "amount": amount, "percent": round(percent, 2)})
+            results.append(
+                {"category": category, "amount": amount, "percent": round(percent, 2)}
+            )
 
-        return Response({"start": start, "end": end, "total": total_amount, "items": results})
+        return Response(
+            {"start": start, "end": end, "total": total_amount, "items": results}
+        )
 
 
 class AccumulatedStatsView(APIView):
@@ -64,7 +70,9 @@ class AccumulatedStatsView(APIView):
         trunc = TruncMonth if granularity == "month" else TruncDay
 
         incomes = (
-            Transaction.objects.filter(user=request.user, type=Transaction.TransactionType.INCOME)
+            Transaction.objects.filter(
+                user=request.user, type=Transaction.TransactionType.INCOME
+            )
             .annotate(period=trunc("date"))
             .values("period")
             .annotate(total=Sum("amount"))
@@ -72,7 +80,9 @@ class AccumulatedStatsView(APIView):
         )
 
         expenses = (
-            Transaction.objects.filter(user=request.user, type=Transaction.TransactionType.EXPENSE)
+            Transaction.objects.filter(
+                user=request.user, type=Transaction.TransactionType.EXPENSE
+            )
             .annotate(period=trunc("date"))
             .values("period")
             .annotate(total=Sum("amount"))
@@ -84,11 +94,15 @@ class AccumulatedStatsView(APIView):
 
         for item in incomes:
             income_running += int(item["total"] or 0)
-            income_results.append({"period": item["period"].date(), "cumulative": income_running})
+            income_results.append(
+                {"period": item["period"].date(), "cumulative": income_running}
+            )
 
         for item in expenses:
             expense_running += int(item["total"] or 0)
-            expense_results.append({"period": item["period"].date(), "cumulative": expense_running})
+            expense_results.append(
+                {"period": item["period"].date(), "cumulative": expense_running}
+            )
 
         return Response(
             {

@@ -11,7 +11,9 @@ class LedgerAuditLog(TimeStampedModel):
         UPDATE = "update", "update"
         DELETE = "delete", "delete"
 
-    transaction = models.ForeignKey(Transaction, on_delete=models.CASCADE, related_name="audit_logs")
+    transaction = models.ForeignKey(
+        Transaction, on_delete=models.CASCADE, related_name="audit_logs"
+    )
     user = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.SET_NULL,

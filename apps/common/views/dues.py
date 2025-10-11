@@ -14,7 +14,6 @@ from apps.common.models import Payment
 from apps.common.permissions import IsAdminOrReadOnly
 from apps.common.serializers import DuesStatusSerializer, PaymentSerializer
 
-
 User = get_user_model()
 
 
@@ -65,7 +64,9 @@ class PaymentViewSet(viewsets.ModelViewSet):
             try:
                 month = int(month_raw)
             except (TypeError, ValueError):
-                raise ValidationError({"month": "Month must be an integer between 1 and 12"})
+                raise ValidationError(
+                    {"month": "Month must be an integer between 1 and 12"}
+                )
             if month < 1 or month > 12:
                 raise ValidationError({"month": "Month must be between 1 and 12"})
             filters["month"] = month
@@ -110,7 +111,9 @@ class DuesStatusView(APIView):
                 "username": user.get_username(),
                 "paid": bool(getattr(user, "paid", False)),
                 "amount": user.paid_amount if getattr(user, "paid", False) else None,
-                "paid_at": user.paid_timestamp if getattr(user, "paid", False) else None,
+                "paid_at": (
+                    user.paid_timestamp if getattr(user, "paid", False) else None
+                ),
             }
             for user in users
         ]
@@ -125,7 +128,9 @@ class DuesUnpaidView(APIView):
     def get(self, request):
         year, month = _parse_year_month(request.query_params)
 
-        payments = Payment.objects.filter(user=OuterRef("pk"), year=year, month=month, is_paid=True)
+        payments = Payment.objects.filter(
+            user=OuterRef("pk"), year=year, month=month, is_paid=True
+        )
         users = (
             User.objects.all()
             .annotate(paid=Exists(payments))
@@ -133,9 +138,6 @@ class DuesUnpaidView(APIView):
             .order_by("username")
         )
 
-        data = [
-            {"user_id": user.id, "username": user.get_username()}
-            for user in users
-        ]
+        data = [{"user_id": user.id, "username": user.get_username()} for user in users]
 
         return Response(data, status=status.HTTP_200_OK)

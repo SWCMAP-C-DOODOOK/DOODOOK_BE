@@ -28,7 +28,9 @@ class TransactionFilter(django_filters.FilterSet):
         if value is None:
             return queryset
         if value:
-            return queryset.filter(receipt_image__isnull=False).exclude(receipt_image="")
+            return queryset.filter(receipt_image__isnull=False).exclude(
+                receipt_image=""
+            )
         return queryset.filter(Q(receipt_image__isnull=True) | Q(receipt_image=""))
 
 

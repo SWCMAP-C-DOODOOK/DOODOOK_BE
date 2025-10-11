@@ -17,7 +17,6 @@ from apps.common.permissions import IsAdminRole
 from apps.dues.models import DuesReminder
 from apps.dues.serializers import DuesReminderSerializer, DuesReminderUpdateSerializer
 
-
 User = get_user_model()
 
 
@@ -55,12 +54,8 @@ class PaymentTotalsView(APIView):
         paid_qs = Payment.objects.filter(year=year, month=month, is_paid=True)
         unpaid_qs = Payment.objects.filter(year=year, month=month).exclude(is_paid=True)
 
-        paid_sum = paid_qs.aggregate(total=Sum("amount"))[
-            "total"
-        ] or 0
-        unpaid_sum = unpaid_qs.aggregate(total=Sum("amount"))[
-            "total"
-        ] or 0
+        paid_sum = paid_qs.aggregate(total=Sum("amount"))["total"] or 0
+        unpaid_sum = unpaid_qs.aggregate(total=Sum("amount"))["total"] or 0
 
         return Response(
             {
@@ -115,7 +110,9 @@ class DuesReminderViewSet(viewsets.ModelViewSet):
         return super().get_serializer_class()
 
     def perform_create(self, serializer):
-        serializer.save(created_by=self.request.user, status=DuesReminder.Status.PENDING)
+        serializer.save(
+            created_by=self.request.user, status=DuesReminder.Status.PENDING
+        )
 
     @action(detail=True, methods=["post"], url_path="resend")
     def resend(self, request, pk=None):
@@ -125,9 +122,14 @@ class DuesReminderViewSet(viewsets.ModelViewSet):
             try:
                 new_time = datetime.fromisoformat(request.data["scheduled_at"])  # type: ignore[arg-type]
             except ValueError:
-                return Response({"detail": "Invalid scheduled_at format"}, status=status.HTTP_400_BAD_REQUEST)
+                return Response(
+                    {"detail": "Invalid scheduled_at format"},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
             if timezone.is_naive(new_time):
-                new_time = timezone.make_aware(new_time, timezone.get_current_timezone())
+                new_time = timezone.make_aware(
+                    new_time, timezone.get_current_timezone()
+                )
             reminder.scheduled_at = new_time
         reminder.sent_at = None
         reminder.save(update_fields=["status", "scheduled_at", "sent_at", "updated_at"])

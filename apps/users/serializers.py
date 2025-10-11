@@ -3,7 +3,6 @@ from rest_framework import serializers
 
 from .models import UserProfile
 
-
 User = get_user_model()
 
 
@@ -20,13 +19,19 @@ class UserProfileSerializer(serializers.ModelSerializer):
     class Meta:
         model = UserProfile
         fields = [
-            'id', 'user', 'nickname', 'phone', 'kakao_id', 'avatar', 'created_at', 'updated_at'
+            "id",
+            "user",
+            "nickname",
+            "phone",
+            "kakao_id",
+            "avatar",
+            "created_at",
+            "updated_at",
         ]
-        read_only_fields = ['id', 'user', 'created_at', 'updated_at']
+        read_only_fields = ["id", "user", "created_at", "updated_at"]
 
 
 class RoleUpdateSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
         fields = ["role"]
-

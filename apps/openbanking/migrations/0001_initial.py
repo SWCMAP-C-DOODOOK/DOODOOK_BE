@@ -7,24 +7,37 @@ class Migration(migrations.Migration):
 
     initial = True
 
-    dependencies = [
-    ]
+    dependencies = []
 
     operations = [
         migrations.CreateModel(
-            name='OpenBankingAccount',
+            name="OpenBankingAccount",
             fields=[
-                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('created_at', models.DateTimeField(auto_now_add=True)),
-                ('updated_at', models.DateTimeField(auto_now=True)),
-                ('alias', models.CharField(max_length=50)),
-                ('fintech_use_num', models.CharField(db_index=True, max_length=24, unique=True)),
-                ('bank_name', models.CharField(blank=True, max_length=50, null=True)),
-                ('account_masked', models.CharField(blank=True, max_length=64, null=True)),
-                ('enabled', models.BooleanField(default=True)),
+                (
+                    "id",
+                    models.BigAutoField(
+                        auto_created=True,
+                        primary_key=True,
+                        serialize=False,
+                        verbose_name="ID",
+                    ),
+                ),
+                ("created_at", models.DateTimeField(auto_now_add=True)),
+                ("updated_at", models.DateTimeField(auto_now=True)),
+                ("alias", models.CharField(max_length=50)),
+                (
+                    "fintech_use_num",
+                    models.CharField(db_index=True, max_length=24, unique=True),
+                ),
+                ("bank_name", models.CharField(blank=True, max_length=50, null=True)),
+                (
+                    "account_masked",
+                    models.CharField(blank=True, max_length=64, null=True),
+                ),
+                ("enabled", models.BooleanField(default=True)),
             ],
             options={
-                'abstract': False,
+                "abstract": False,
             },
         ),
     ]

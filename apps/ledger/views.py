@@ -1,10 +1,10 @@
 from django.db import transaction as db_transaction
+from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import viewsets
 from rest_framework.exceptions import ValidationError
 from rest_framework.filters import OrderingFilter, SearchFilter
 from rest_framework.parsers import FormParser, JSONParser, MultiPartParser
 from rest_framework.permissions import IsAuthenticated
-from django_filters.rest_framework import DjangoFilterBackend
 
 from apps.common.filters import TransactionFilter
 from apps.common.models import Transaction
@@ -34,7 +34,9 @@ class TransactionViewSet(viewsets.ModelViewSet):
             "date": instance.date.isoformat() if instance.date else None,
             "type": instance.type,
             "category": instance.category,
-            "receipt_image": instance.receipt_image.name if instance.receipt_image else None,
+            "receipt_image": (
+                instance.receipt_image.name if instance.receipt_image else None
+            ),
         }
 
     def perform_create(self, serializer):

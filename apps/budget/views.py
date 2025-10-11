@@ -45,7 +45,9 @@ class BudgetViewSet(viewsets.ModelViewSet):
         budgets_for_usage = page if page is not None else queryset
         budgets_list = list(budgets_for_usage)
         self._budget_usage_map = self._build_usage_map(budgets_list, date_from, date_to)
-        serializer = self.get_serializer(page if page is not None else budgets_list, many=True)
+        serializer = self.get_serializer(
+            page if page is not None else budgets_list, many=True
+        )
         if page is not None:
             return self.get_paginated_response(serializer.data)
         return Response(serializer.data)
@@ -64,7 +66,9 @@ class BudgetViewSet(viewsets.ModelViewSet):
             try:
                 return datetime.strptime(value, "%Y-%m-%d").date()
             except ValueError as exc:
-                raise ValidationError({field_name: "Invalid date format. Use YYYY-MM-DD"}) from exc
+                raise ValidationError(
+                    {field_name: "Invalid date format. Use YYYY-MM-DD"}
+                ) from exc
 
         date_from = parse(request.query_params.get("date_from"), "date_from")
         date_to = parse(request.query_params.get("date_to"), "date_to")
@@ -86,12 +90,20 @@ class BudgetViewSet(viewsets.ModelViewSet):
 
         usage = {}
         if budget_ids:
-            for row in qs.filter(budget_id__in=budget_ids).values("budget_id").annotate(total=Sum("amount")):
+            for row in (
+                qs.filter(budget_id__in=budget_ids)
+                .values("budget_id")
+                .annotate(total=Sum("amount"))
+            ):
                 usage[row["budget_id"]] = int(row["total"] or 0)
 
         if name_to_id:
             categories = list(name_to_id.keys())
-            for row in qs.filter(budget__isnull=True, category__in=categories).values("category").annotate(total=Sum("amount")):
+            for row in (
+                qs.filter(budget__isnull=True, category__in=categories)
+                .values("category")
+                .annotate(total=Sum("amount"))
+            ):
                 budget_id = name_to_id.get(row["category"])
                 if budget_id:
                     usage[budget_id] = usage.get(budget_id, 0) + int(row["total"] or 0)
@@ -119,7 +131,11 @@ class BudgetViewSet(viewsets.ModelViewSet):
         ordering_param = request.query_params.get("ordering")
         if ordering_param:
             allowed = {"date", "-date", "amount", "-amount", "id", "-id"}
-            fields = [field.strip() for field in ordering_param.split(",") if field.strip() in allowed]
+            fields = [
+                field.strip()
+                for field in ordering_param.split(",")
+                if field.strip() in allowed
+            ]
             if fields:
                 queryset = queryset.order_by(*fields)
             else:
@@ -128,7 +144,11 @@ class BudgetViewSet(viewsets.ModelViewSet):
             queryset = queryset.order_by("-date", "-id")
 
         page = self.paginate_queryset(queryset)
-        serializer = TransactionSerializer(page if page is not None else queryset, many=True, context=self.get_serializer_context())
+        serializer = TransactionSerializer(
+            page if page is not None else queryset,
+            many=True,
+            context=self.get_serializer_context(),
+        )
         if page is not None:
             return self.get_paginated_response(serializer.data)
         return Response(serializer.data)
