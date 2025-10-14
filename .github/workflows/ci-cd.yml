@@ -5,7 +5,7 @@ on:
     branches: ["main"]
   workflow_dispatch: {}
 
-# OIDC로 AssumeRole 하려면 필요
+# OIDC AssumeRole에 필요
 permissions:
   id-token: write
   contents: read
@@ -44,9 +44,18 @@ jobs:
     if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     env:
+      # GitHub env
       OWNER: SWCMAP-C-DOODOOK
       REPO: DOODOOK_BE
       INSTANCE_ID: i-0462f20868c7cc71f
+      # App secrets (Actions > Secrets)
+      DJANGO_SECRET_KEY: ${{ secrets.DJANGO_SECRET_KEY }}
+      DB_NAME: ${{ secrets.DB_NAME }}
+      DB_USER: ${{ secrets.DB_USER }}
+      DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
+      DB_HOST: ${{ secrets.DB_HOST }}
+      DB_PORT: ${{ secrets.DB_PORT }}
+      ALLOWED_HOSTS: ${{ secrets.ALLOWED_HOSTS }}
     steps:
       - name: Configure AWS creds (OIDC)
         uses: aws-actions/configure-aws-credentials@v4
@@ -54,7 +63,6 @@ jobs:
           role-to-assume: arn:aws:iam::788391084087:role/DooDook_gitAction
           aws-region: ap-northeast-2
 
-      # awscli가 없을 경우만 설치 (대부분 이미 있음)
       - name: Ensure AWS CLI v2
         run: |
           set -euxo pipefail
@@ -72,7 +80,7 @@ jobs:
         run: |
           set -euxo pipefail
 
-          # 1) 배포 스크립트(여러 줄)를 변수에 담기
+          # 1) 배포 스크립트(멀티라인)
           DEPLOY=$(cat <<'EOS'
           set -euxo pipefail
 
@@ -107,13 +115,24 @@ jobs:
           pip install --upgrade pip
           pip install -r requirements.txt
 
-          # .env(없으면 최소값 생성)
-          [ -f .env ] || cat > .env <<'ENV'
-          DJANGO_SECRET_KEY=REPLACE_ME
+          # .env 생성/갱신 (Actions 시크릿으로 채움)
+          cat > .env <<'ENV'
+          DJANGO_SECRET_KEY=${{ env.DJANGO_SECRET_KEY }}
           DJANGO_SETTINGS_MODULE=config.settings
-          AWS_STORAGE_BUCKET_NAME=your-bucket
-          AWS_S3_REGION_NAME=ap-northeast-2
+
+          DB_NAME=${{ env.DB_NAME }}
+          DB_USER=${{ env.DB_USER }}
+          DB_PASSWORD=${{ env.DB_PASSWORD }}
+          DB_HOST=${{ env.DB_HOST }}
+          DB_PORT=${{ env.DB_PORT }}
+
+          ALLOWED_HOSTS=${{ env.ALLOWED_HOSTS }}
           ENV
+
+          # manage.py가 .env를 자동 로드하지 않는 경우 대비: export
+          set -a
+          [ -f .env ] && . ./.env
+          set +a
 
           # 마이그/정적
           python manage.py migrate --noinput
@@ -162,9 +181,19 @@ jobs:
             sudo systemctl enable nginx
           fi
 
-          # reload + 헬스체크
+          # reload + 헬스체크 (+ 실패시 진단 로그)
           sudo nginx -t && sudo systemctl reload nginx
-          curl -sfI http://127.0.0.1/ >/dev/null
+          if ! curl -sfI http://127.0.0.1/ >/dev/null; then
+            echo "=== gunicorn status ==="
+            sudo systemctl status gunicorn --no-pager || true
+            echo "=== nginx status ==="
+            sudo systemctl status nginx --no-pager || true
+            echo "=== gunicorn journal (last 200) ==="
+            sudo journalctl -u gunicorn -n 200 --no-pager || true
+            echo "=== nginx error log (last 200) ==="
+            sudo tail -n 200 /var/log/nginx/error.log || true
+            exit 1
+          fi
           EOS
           )
 
@@ -184,15 +213,29 @@ jobs:
             --query "Command.CommandId" --output text)
           echo "CMD_ID=$CMD_ID" >> "$GITHUB_OUTPUT"
 
-      - name: Wait for completion
+      - name: Wait for completion (with logs)
         run: |
+          set -e
           for i in $(seq 1 60); do
             STATUS=$(aws ssm list-command-invocations \
               --command-id "${{ steps.ssm.outputs.CMD_ID }}" \
               --details --query "CommandInvocations[0].Status" --output text || true)
             echo "Status: $STATUS"
             if [ "$STATUS" = "Success" ]; then exit 0; fi
-            if [ "$STATUS" = "Failed" ] || [ "$STATUS" = "Cancelled" ] || [ "$STATUS" = "TimedOut" ]; then exit 1; fi
+            if [ "$STATUS" = "Failed" ] || [ "$STATUS" = "Cancelled" ] || [ "$STATUS" = "TimedOut" ]; then
+              echo "---- SSM STDERR ----"
+              aws ssm get-command-invocation \
+                --command-id "${{ steps.ssm.outputs.CMD_ID }}" \
+                --instance-id "${{ env.INSTANCE_ID }}" \
+                --query "StandardErrorContent" --output text || true
+              echo "---- SSM STDOUT ----"
+              aws ssm get-command-invocation \
+                --command-id "${{ steps.ssm.outputs.CMD_ID }}" \
+                --instance-id "${{ env.INSTANCE_ID }}" \
+                --query "StandardOutputContent" --output text || true
+              exit 1
+            fi
             sleep 5
           done
-          echo "Timeout waiting for SSM"; exit 1
+          echo "Timeout waiting for SSM"
+          exit 1
