@@ -44,11 +44,9 @@ jobs:
     if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     env:
-      # GitHub env
       OWNER: SWCMAP-C-DOODOOK
       REPO: DOODOOK_BE
       INSTANCE_ID: i-0462f20868c7cc71f
-      # App secrets (Actions > Secrets)
       DJANGO_SECRET_KEY: ${{ secrets.DJANGO_SECRET_KEY }}
       DB_NAME: ${{ secrets.DB_NAME }}
       DB_USER: ${{ secrets.DB_USER }}
@@ -80,7 +78,6 @@ jobs:
         run: |
           set -euxo pipefail
 
-          # 1) 배포 스크립트(멀티라인)
           DEPLOY=$(cat <<'EOS'
           set -euxo pipefail
 
@@ -96,7 +93,6 @@ jobs:
               sudo dnf -y install --allowerasing git python3 python3-pip nginx
             else
               sudo yum -y update
-              # curl은 AL2023에 기본 curl-minimal로 제공 → 설치 생략(충돌 방지)
               sudo yum -y install git python3 python3-pip nginx
             fi
           fi
@@ -115,13 +111,13 @@ jobs:
             git clean -fd || true
           fi
 
-          # 의존성
+          # 파이썬 의존성
           python3 -m venv .venv || true
           . .venv/bin/activate
           pip install --upgrade pip
           pip install -r requirements.txt
 
-          # .env 생성/갱신 (Actions 시크릿으로 채움)
+          # .env 생성/갱신 (Actions 시크릿 주입)
           cat > .env <<'ENV'
           DJANGO_SECRET_KEY=${{ env.DJANGO_SECRET_KEY }}
           DJANGO_SETTINGS_MODULE=config.settings
@@ -135,10 +131,18 @@ jobs:
           ALLOWED_HOSTS=${{ env.ALLOWED_HOSTS }}
           ENV
 
-          # manage.py가 .env를 자동 로드하지 않는 경우 대비: export
+          # manage.py가 .env 자동 로드하지 않는 경우 대비
           set -a
           [ -f .env ] && . ./.env
           set +a
+
+          # (옵션) DB 포트 연결 체크
+          if [ -n "${DB_HOST:-}" ] && [ -n "${DB_PORT:-}" ]; then
+            if ! timeout 3 bash -c "cat < /dev/null > /dev/tcp/$DB_HOST/$DB_PORT"; then
+              echo "DB 포트 연결 실패: $DB_HOST:$DB_PORT"
+              exit 1
+            fi
+          fi
 
           # 마이그/정적
           python manage.py migrate --noinput
@@ -147,47 +151,60 @@ jobs:
           # gunicorn (최초 1회 생성)
           if [ ! -f /etc/systemd/system/gunicorn.service ]; then
             sudo tee /etc/systemd/system/gunicorn.service >/dev/null <<'UNIT'
-            [Unit]
-            Description=Gunicorn for DOODOOK_BE
-            After=network.target
-            [Service]
-            User=ec2-user
-            Group=nginx
-            WorkingDirectory=/var/www/DOODOOK_BE
-            Environment="DJANGO_SETTINGS_MODULE=config.settings"
-            EnvironmentFile=/var/www/DOODOOK_BE/.env
-            ExecStart=/var/www/DOODOOK_BE/.venv/bin/gunicorn config.wsgi:application --bind 127.0.0.1:8000 --workers 3 --timeout 60
-            Restart=always
-            [Install]
-            WantedBy=multi-user.target
-            UNIT
+          [Unit]
+          Description=Gunicorn for DOODOOK_BE
+          After=network.target
+
+          [Service]
+          User=ec2-user
+          Group=nginx
+          WorkingDirectory=/var/www/DOODOOK_BE
+          Environment="DJANGO_SETTINGS_MODULE=config.settings"
+          EnvironmentFile=/var/www/DOODOOK_BE/.env
+          ExecStart=/var/www/DOODOOK_BE/.venv/bin/gunicorn config.wsgi:application --bind 127.0.0.1:8000 --workers 3 --timeout 60
+          Restart=always
+
+          [Install]
+          WantedBy=multi-user.target
+          UNIT
             sudo systemctl daemon-reload
             sudo systemctl enable gunicorn
           fi
           sudo systemctl restart gunicorn
 
-          # nginx (최초 1회 생성)
+          # nginx (최초 1회 생성) - collectstatic 경로(staticfiles) 맞춤
           if [ ! -f /etc/nginx/conf.d/doodook_be.conf ]; then
             sudo tee /etc/nginx/conf.d/doodook_be.conf >/dev/null <<'NGX'
-            server {
-              listen 80;
-              server_name _;
-              client_max_body_size 20M;
-              location /static/ { alias /var/www/DOODOOK_BE/static/; access_log off; expires 7d; }
-              location /media/  { alias /var/www/DOODOOK_BE/media/;  access_log off; expires 7d; }
-              location / {
-                proxy_set_header Host $host;
-                proxy_set_header X-Forwarded-For $remote_addr;
-                proxy_set_header X-Forwarded-Proto $scheme;
-                proxy_pass http://127.0.0.1:8000;
-              }
+          server {
+            listen 80;
+            server_name _;
+            client_max_body_size 20M;
+
+            location /static/ {
+              alias /var/www/DOODOOK_BE/staticfiles/;
+              access_log off;
+              expires 7d;
             }
-            NGX
+
+            location /media/ {
+              alias /var/www/DOODOOK_BE/media/;
+              access_log off;
+              expires 7d;
+            }
+
+            location / {
+              proxy_set_header Host $host;
+              proxy_set_header X-Forwarded-For $remote_addr;
+              proxy_set_header X-Forwarded-Proto $scheme;
+              proxy_pass http://127.0.0.1:8000;
+            }
+          }
+          NGX
             sudo nginx -t
             sudo systemctl enable nginx
           fi
 
-          # reload + 헬스체크 (+ 실패시 진단 로그)
+          # reload + 헬스체크 (+ 실패 시 진단 로그)
           sudo nginx -t && sudo systemctl reload nginx
           if ! curl -sfI http://127.0.0.1/ >/dev/null; then
             echo "=== gunicorn status ==="
@@ -203,14 +220,14 @@ jobs:
           EOS
           )
 
-          # 2) jq로 JSON 파라미터 생성(멀티라인 안전 처리)
+          # jq 없으면 설치 후 JSON 파라미터 생성
           if ! command -v jq >/dev/null 2>&1; then
             sudo apt-get update -y
             sudo apt-get install -y jq
           fi
           jq -n --arg script "$DEPLOY" '{commands: [$script]}' > ssm-params.json
 
-          # 3) SSM 실행
+          # SSM 실행
           CMD_ID=$(aws ssm send-command \
             --instance-ids "${INSTANCE_ID}" \
             --document-name "AWS-RunShellScript" \
