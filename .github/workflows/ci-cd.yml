@@ -5,7 +5,6 @@ on:
     branches: ["main"]
   workflow_dispatch: {}
 
-# OIDC AssumeRole에 필요
 permissions:
   id-token: write
   contents: read
@@ -47,6 +46,7 @@ jobs:
       OWNER: SWCMAP-C-DOODOOK
       REPO: DOODOOK_BE
       INSTANCE_ID: i-0462f20868c7cc71f
+
       DJANGO_SECRET_KEY: ${{ secrets.DJANGO_SECRET_KEY }}
       DB_NAME: ${{ secrets.DB_NAME }}
       DB_USER: ${{ secrets.DB_USER }}
@@ -81,7 +81,7 @@ jobs:
           DEPLOY=$(cat <<'EOS'
           set -euxo pipefail
 
-          # --- bootstrap: 필수 패키지 (AL2023 호환) ---
+          # --- bootstrap: 필수 패키지 ---
           NEED_INSTALL=0
           command -v git >/dev/null 2>&1 || NEED_INSTALL=1
           command -v python3 >/dev/null 2>&1 || NEED_INSTALL=1
@@ -101,6 +101,9 @@ jobs:
           sudo mkdir -p /var/www/DOODOOK_BE
           sudo chown -R ec2-user:nginx /var/www/DOODOOK_BE
           cd /var/www/DOODOOK_BE
+
+          # git 소유자 경고 해제 (SSM는 root로 실행되므로 안전 디렉토리 등록)
+          git config --global --add safe.directory /var/www/DOODOOK_BE
 
           # 퍼블릭 리포 동기화
           if [ ! -d .git ]; then
@@ -172,7 +175,10 @@ jobs:
           fi
           sudo systemctl restart gunicorn
 
-          # nginx (최초 1회 생성) - collectstatic 경로(staticfiles) 맞춤
+          # nginx 기본 서버 제거(경고 방지)
+          sudo rm -f /etc/nginx/conf.d/default.conf || true
+
+          # nginx (최초 1회 생성) - collectstatic 경로(staticfiles) 사용
           if [ ! -f /etc/nginx/conf.d/doodook_be.conf ]; then
             sudo tee /etc/nginx/conf.d/doodook_be.conf >/dev/null <<'NGX'
           server {
@@ -200,12 +206,18 @@ jobs:
             }
           }
           NGX
-            sudo nginx -t
-            sudo systemctl enable nginx
           fi
 
-          # reload + 헬스체크 (+ 실패 시 진단 로그)
-          sudo nginx -t && sudo systemctl reload nginx
+          # nginx 설정 검사 및 시작/재시작
+          sudo nginx -t
+          if ! systemctl is-active --quiet nginx; then
+            sudo systemctl enable nginx
+            sudo systemctl start nginx
+          else
+            sudo systemctl reload nginx || sudo systemctl restart nginx
+          fi
+
+          # 헬스체크 (+ 실패 시 진단 로그)
           if ! curl -sfI http://127.0.0.1/ >/dev/null; then
             echo "=== gunicorn status ==="
             sudo systemctl status gunicorn --no-pager || true
@@ -220,7 +232,7 @@ jobs:
           EOS
           )
 
-          # jq 없으면 설치 후 JSON 파라미터 생성
+          # jq 설치 후 JSON 파라미터 생성
           if ! command -v jq >/dev/null 2>&1; then
             sudo apt-get update -y
             sudo apt-get install -y jq
