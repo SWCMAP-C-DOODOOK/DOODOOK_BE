@@ -1,23 +1,45 @@
-name: CD on merge to main (SSM)
+name: CI/CD (SSM)
 
 on:
-  pull_request:
+  push:
     branches: ["main"]
-    types: [closed]   # PR이 닫힐 때만(머지 포함)
   workflow_dispatch: {}
 
+# OIDC AssumeRole에 필요
 permissions:
   id-token: write
   contents: read
 
 concurrency:
-  group: cd-main
+  group: cicd-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Run checks
+        env:
+          DJANGO_SECRET_KEY: test-key
+        run: |
+          python manage.py check
+          python manage.py test --verbosity=2
+
   deploy:
-    # PR이 '머지된' 경우에만 실행 (닫힘이지만 미머지면 건너뜀)
-    if: github.event.pull_request.merged == true
+    needs: build
+    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     env:
       OWNER: SWCMAP-C-DOODOOK
@@ -30,7 +52,8 @@ jobs:
           role-to-assume: arn:aws:iam::788391084087:role/DooDook_gitAction
           aws-region: ap-northeast-2
 
-      - name: Ensure AWS CLI v2 (inline)   # 있어도 재설치 안 함
+      # aws cli 보장 (없으면만 설치)
+      - name: Ensure AWS CLI v2 (inline)
         run: |
           set -euxo pipefail
           if ! command -v aws >/dev/null 2>&1; then
@@ -48,7 +71,7 @@ jobs:
           DEPLOY=$(cat <<'EOS'
           set -euxo pipefail
 
-          # --- bootstrap ---
+          # --- bootstrap: 필수 패키지 ---
           if ! command -v python3 >/dev/null 2>&1 || ! command -v nginx >/dev/null 2>&1 || ! command -v git >/dev/null 2>&1 || ! command -v curl >/dev/null 2>&1; then
             if command -v yum >/dev/null 2>&1; then
               sudo yum -y update
@@ -59,11 +82,12 @@ jobs:
             fi
           fi
 
+          # 디렉토리/권한
           sudo mkdir -p /var/www/DOODOOK_BE
           sudo chown -R ec2-user:nginx /var/www/DOODOOK_BE
           cd /var/www/DOODOOK_BE
 
-          # 퍼블릭 리포 기준
+          # 퍼블릭 리포 동기화
           if [ ! -d .git ]; then
             git clone https://github.com/${{ env.OWNER }}/${{ env.REPO }}.git .
           else
@@ -72,11 +96,13 @@ jobs:
             git clean -fd || true
           fi
 
+          # 의존성
           python3 -m venv .venv || true
           . .venv/bin/activate
           pip install --upgrade pip
           pip install -r requirements.txt
 
+          # .env(없으면 최소값 생성)
           [ -f .env ] || cat > .env <<'ENV'
           DJANGO_SECRET_KEY=REPLACE_ME
           DJANGO_SETTINGS_MODULE=config.settings
@@ -84,9 +110,11 @@ jobs:
           AWS_S3_REGION_NAME=ap-northeast-2
           ENV
 
+          # 마이그/정적
           python manage.py migrate --noinput
           python manage.py collectstatic --noinput
 
+          # gunicorn (최초 1회 생성)
           if [ ! -f /etc/systemd/system/gunicorn.service ]; then
             sudo tee /etc/systemd/system/gunicorn.service >/dev/null <<'UNIT'
             [Unit]
@@ -108,6 +136,7 @@ jobs:
           fi
           sudo systemctl restart gunicorn
 
+          # nginx (최초 1회 생성)
           if [ ! -f /etc/nginx/conf.d/doodook_be.conf ]; then
             sudo tee /etc/nginx/conf.d/doodook_be.conf >/dev/null <<'NGX'
             server {
@@ -128,6 +157,7 @@ jobs:
             sudo systemctl enable nginx
           fi
 
+          # reload + 헬스체크
           sudo nginx -t && sudo systemctl reload nginx
           curl -sfI http://127.0.0.1/ >/dev/null
           EOS
