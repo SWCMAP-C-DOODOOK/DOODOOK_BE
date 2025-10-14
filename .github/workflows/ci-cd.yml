@@ -81,12 +81,11 @@ jobs:
           DEPLOY=$(cat <<'EOS'
           set -euxo pipefail
 
-          # --- bootstrap: 필수 패키지 ---
+          # --- bootstrap: 패키지 설치 확인 (Amazon Linux 2023 호환) ---
           NEED_INSTALL=0
           command -v git >/dev/null 2>&1 || NEED_INSTALL=1
           command -v python3 >/dev/null 2>&1 || NEED_INSTALL=1
           command -v nginx >/dev/null 2>&1 || NEED_INSTALL=1
-
           if [ "$NEED_INSTALL" -eq 1 ]; then
             if command -v dnf >/dev/null 2>&1; then
               sudo dnf -y update
@@ -102,10 +101,10 @@ jobs:
           sudo chown -R ec2-user:nginx /var/www/DOODOOK_BE
           cd /var/www/DOODOOK_BE
 
-          # git 소유자 경고 해제 (SSM는 root로 실행되므로 안전 디렉토리 등록)
-          git config --global --add safe.directory /var/www/DOODOOK_BE
+          # git “dubious ownership” 방지: system 레벨 설정 (HOME 불필요)
+          sudo git config --system --add safe.directory /var/www/DOODOOK_BE
 
-          # 퍼블릭 리포 동기화
+          # 리포 동기화 (퍼블릭 리포 기준)
           if [ ! -d .git ]; then
             git clone https://github.com/${{ env.OWNER }}/${{ env.REPO }}.git .
           else
@@ -120,7 +119,7 @@ jobs:
           pip install --upgrade pip
           pip install -r requirements.txt
 
-          # .env 생성/갱신 (Actions 시크릿 주입)
+          # .env 생성/갱신 (GitHub Actions 시크릿 주입)
           cat > .env <<'ENV'
           DJANGO_SECRET_KEY=${{ env.DJANGO_SECRET_KEY }}
           DJANGO_SETTINGS_MODULE=config.settings
@@ -134,12 +133,12 @@ jobs:
           ALLOWED_HOSTS=${{ env.ALLOWED_HOSTS }}
           ENV
 
-          # manage.py가 .env 자동 로드하지 않는 경우 대비
+          # manage.py가 .env 자동 로드하지 않는 경우 대비 (export)
           set -a
           [ -f .env ] && . ./.env
           set +a
 
-          # (옵션) DB 포트 연결 체크
+          # (선택) DB 포트 연결 체크: RDS가 사설망/터널 의존이면 OFF 권장
           if [ -n "${DB_HOST:-}" ] && [ -n "${DB_PORT:-}" ]; then
             if ! timeout 3 bash -c "cat < /dev/null > /dev/tcp/$DB_HOST/$DB_PORT"; then
               echo "DB 포트 연결 실패: $DB_HOST:$DB_PORT"
@@ -151,7 +150,7 @@ jobs:
           python manage.py migrate --noinput
           python manage.py collectstatic --noinput
 
-          # gunicorn (최초 1회 생성)
+          # gunicorn systemd 유닛 (최초 1회 생성)
           if [ ! -f /etc/systemd/system/gunicorn.service ]; then
             sudo tee /etc/systemd/system/gunicorn.service >/dev/null <<'UNIT'
           [Unit]
@@ -175,10 +174,10 @@ jobs:
           fi
           sudo systemctl restart gunicorn
 
-          # nginx 기본 서버 제거(경고 방지)
+          # 기본 nginx conf 제거(서버네임 충돌 방지)
           sudo rm -f /etc/nginx/conf.d/default.conf || true
 
-          # nginx (최초 1회 생성) - collectstatic 경로(staticfiles) 사용
+          # nginx 사이트 conf (최초 1회 생성) — collectstatic 경로는 staticfiles
           if [ ! -f /etc/nginx/conf.d/doodook_be.conf ]; then
             sudo tee /etc/nginx/conf.d/doodook_be.conf >/dev/null <<'NGX'
           server {
@@ -208,7 +207,7 @@ jobs:
           NGX
           fi
 
-          # nginx 설정 검사 및 시작/재시작
+          # nginx 설정 검사 및 시작/재적용
           sudo nginx -t
           if ! systemctl is-active --quiet nginx; then
             sudo systemctl enable nginx
@@ -217,7 +216,7 @@ jobs:
             sudo systemctl reload nginx || sudo systemctl restart nginx
           fi
 
-          # 헬스체크 (+ 실패 시 진단 로그)
+          # 헬스체크 (실패 시 진단 로그 출력)
           if ! curl -sfI http://127.0.0.1/ >/dev/null; then
             echo "=== gunicorn status ==="
             sudo systemctl status gunicorn --no-pager || true
@@ -232,7 +231,7 @@ jobs:
           EOS
           )
 
-          # jq 설치 후 JSON 파라미터 생성
+          # jq로 SSM 파라미터(JSON) 생성
           if ! command -v jq >/dev/null 2>&1; then
             sudo apt-get update -y
             sudo apt-get install -y jq
