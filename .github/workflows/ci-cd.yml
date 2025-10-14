@@ -84,14 +84,20 @@ jobs:
           DEPLOY=$(cat <<'EOS'
           set -euxo pipefail
 
-          # --- bootstrap: 필수 패키지 ---
-          if ! command -v python3 >/dev/null 2>&1 || ! command -v nginx >/dev/null 2>&1 || ! command -v git >/dev/null 2>&1 || ! command -v curl >/dev/null 2>&1; then
-            if command -v yum >/dev/null 2>&1; then
-              sudo yum -y update
-              sudo yum -y install git python3 python3-pip nginx curl
-            else
+          # --- bootstrap: 필수 패키지 (AL2023 호환) ---
+          NEED_INSTALL=0
+          command -v git >/dev/null 2>&1 || NEED_INSTALL=1
+          command -v python3 >/dev/null 2>&1 || NEED_INSTALL=1
+          command -v nginx >/dev/null 2>&1 || NEED_INSTALL=1
+
+          if [ "$NEED_INSTALL" -eq 1 ]; then
+            if command -v dnf >/dev/null 2>&1; then
               sudo dnf -y update
-              sudo dnf -y install git python3 python3-pip nginx curl
+              sudo dnf -y install --allowerasing git python3 python3-pip nginx
+            else
+              sudo yum -y update
+              # curl은 AL2023에 기본 curl-minimal로 제공 → 설치 생략(충돌 방지)
+              sudo yum -y install git python3 python3-pip nginx
             fi
           fi
 
@@ -168,7 +174,7 @@ jobs:
               server_name _;
               client_max_body_size 20M;
               location /static/ { alias /var/www/DOODOOK_BE/static/; access_log off; expires 7d; }
-              location /media  { alias /var/www/DOODOOK_BE/media/;  access_log off; expires 7d; }
+              location /media/  { alias /var/www/DOODOOK_BE/media/;  access_log off; expires 7d; }
               location / {
                 proxy_set_header Host $host;
                 proxy_set_header X-Forwarded-For $remote_addr;
