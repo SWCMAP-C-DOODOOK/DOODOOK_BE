@@ -5,7 +5,7 @@ on:
     branches: ["main"]
   workflow_dispatch: {}
 
-# OIDC AssumeRole에 필요
+# OIDC로 AssumeRole 하려면 필요
 permissions:
   id-token: write
   contents: read
@@ -18,9 +18,11 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v4
 
-      - uses: actions/setup-python@v5
+      - name: Set up Python
+        uses: actions/setup-python@v5
         with:
           python-version: "3.11"
           cache: "pip"
@@ -52,8 +54,8 @@ jobs:
           role-to-assume: arn:aws:iam::788391084087:role/DooDook_gitAction
           aws-region: ap-northeast-2
 
-      # aws cli 보장 (없으면만 설치)
-      - name: Ensure AWS CLI v2 (inline)
+      # awscli가 없을 경우만 설치 (대부분 이미 있음)
+      - name: Ensure AWS CLI v2
         run: |
           set -euxo pipefail
           if ! command -v aws >/dev/null 2>&1; then
@@ -68,6 +70,9 @@ jobs:
       - name: Deploy via SSM RunCommand
         id: ssm
         run: |
+          set -euxo pipefail
+
+          # 1) 배포 스크립트(여러 줄)를 변수에 담기
           DEPLOY=$(cat <<'EOS'
           set -euxo pipefail
 
@@ -138,7 +143,7 @@ jobs:
 
           # nginx (최초 1회 생성)
           if [ ! -f /etc/nginx/conf.d/doodook_be.conf ]; then
-            sudo tee /etc/nginx/conf.d/doodook_be.conf >/dev/null <<'NGX'
+            sudo tee /etc/nginx/conf.d/doodook_be.conf >/div/null <<'NGX'
             server {
               listen 80;
               server_name _;
@@ -162,11 +167,20 @@ jobs:
           curl -sfI http://127.0.0.1/ >/dev/null
           EOS
           )
+
+          # 2) jq로 JSON 파라미터 생성(멀티라인 안전 처리)
+          if ! command -v jq >/dev/null 2>&1; then
+            sudo apt-get update -y
+            sudo apt-get install -y jq
+          fi
+          jq -n --arg script "$DEPLOY" '{commands: [$script]}' > ssm-params.json
+
+          # 3) SSM 실행
           CMD_ID=$(aws ssm send-command \
             --instance-ids "${INSTANCE_ID}" \
             --document-name "AWS-RunShellScript" \
             --comment "doodook deploy" \
-            --parameters commands="$DEPLOY" \
+            --parameters file://ssm-params.json \
             --query "Command.CommandId" --output text)
           echo "CMD_ID=$CMD_ID" >> "$GITHUB_OUTPUT"
 
