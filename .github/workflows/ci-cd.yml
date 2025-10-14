@@ -219,7 +219,7 @@ jobs:
           fi
 
           # 헬스체크 (실패 시 진단 로그 출력)
-          if ! curl -sfI http://127.0.0.1/ >/dev/null; then
+          if ! curl -sfI http://127.0.0.1/healthz/ >/dev/null; then
             echo "=== gunicorn status ==="
             sudo systemctl status gunicorn --no-pager || true
             echo "=== nginx status ==="
