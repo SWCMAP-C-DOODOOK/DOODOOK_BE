@@ -9,3 +9,4 @@ boto3>=1.28
 psycopg2-binary>=2.9
 Pillow>=10.0
 requests>=2.31
+gunicorn>=20,<23
