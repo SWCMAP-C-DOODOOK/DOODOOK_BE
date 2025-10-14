@@ -2,11 +2,16 @@ from django.conf import settings
 from django.conf.urls.static import static
 from django.contrib import admin
 from django.urls import include, path
+from django.http import HttpResponse
 
 from apps.ledger.views_stats import AccumulatedStatsView, CategoryShareStatsView
 
+def healthz(_request):
+    return HttpResponse("ok", content_type="text/plain")
+
 urlpatterns = [
     path("admin/", admin.site.urls),
+    path("healthz/", healthz),
     path("api/", include("apps.budget.urls")),
     path("api/", include("apps.openbanking.urls")),
     path("api/", include("apps.ocr.urls")),
