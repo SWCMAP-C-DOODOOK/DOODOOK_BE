@@ -143,7 +143,7 @@ jobs:
 
           # nginx (최초 1회 생성)
           if [ ! -f /etc/nginx/conf.d/doodook_be.conf ]; then
-            sudo tee /etc/nginx/conf.d/doodook_be.conf >/div/null <<'NGX'
+            sudo tee /etc/nginx/conf.d/doodook_be.conf >/dev/null <<'NGX'
             server {
               listen 80;
               server_name _;
