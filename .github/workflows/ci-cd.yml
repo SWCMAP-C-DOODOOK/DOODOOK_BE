@@ -1,0 +1,154 @@
+name: CD on merge to main (SSM)
+
+on:
+  pull_request:
+    branches: ["main"]
+    types: [closed]   # PR이 닫힐 때만(머지 포함)
+  workflow_dispatch: {}
+
+permissions:
+  id-token: write
+  contents: read
+
+concurrency:
+  group: cd-main
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    # PR이 '머지된' 경우에만 실행 (닫힘이지만 미머지면 건너뜀)
+    if: github.event.pull_request.merged == true
+    runs-on: ubuntu-latest
+    env:
+      OWNER: SWCMAP-C-DOODOOK
+      REPO: DOODOOK_BE
+      INSTANCE_ID: i-0462f20868c7cc71f
+    steps:
+      - name: Configure AWS creds (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::788391084087:role/DooDook_gitAction
+          aws-region: ap-northeast-2
+
+      - name: Ensure AWS CLI v2 (inline)   # 있어도 재설치 안 함
+        run: |
+          set -euxo pipefail
+          if ! command -v aws >/dev/null 2>&1; then
+            sudo apt-get update -y
+            sudo apt-get install -y unzip
+            curl -sS https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip -o awscliv2.zip
+            unzip -q awscliv2.zip
+            sudo ./aws/install
+          fi
+          aws --version
+
+      - name: Deploy via SSM RunCommand
+        id: ssm
+        run: |
+          DEPLOY=$(cat <<'EOS'
+          set -euxo pipefail
+
+          # --- bootstrap ---
+          if ! command -v python3 >/dev/null 2>&1 || ! command -v nginx >/dev/null 2>&1 || ! command -v git >/dev/null 2>&1 || ! command -v curl >/dev/null 2>&1; then
+            if command -v yum >/dev/null 2>&1; then
+              sudo yum -y update
+              sudo yum -y install git python3 python3-pip nginx curl
+            else
+              sudo dnf -y update
+              sudo dnf -y install git python3 python3-pip nginx curl
+            fi
+          fi
+
+          sudo mkdir -p /var/www/DOODOOK_BE
+          sudo chown -R ec2-user:nginx /var/www/DOODOOK_BE
+          cd /var/www/DOODOOK_BE
+
+          # 퍼블릭 리포 기준
+          if [ ! -d .git ]; then
+            git clone https://github.com/${{ env.OWNER }}/${{ env.REPO }}.git .
+          else
+            git fetch --all || true
+            git reset --hard origin/main || true
+            git clean -fd || true
+          fi
+
+          python3 -m venv .venv || true
+          . .venv/bin/activate
+          pip install --upgrade pip
+          pip install -r requirements.txt
+
+          [ -f .env ] || cat > .env <<'ENV'
+          DJANGO_SECRET_KEY=REPLACE_ME
+          DJANGO_SETTINGS_MODULE=config.settings
+          AWS_STORAGE_BUCKET_NAME=your-bucket
+          AWS_S3_REGION_NAME=ap-northeast-2
+          ENV
+
+          python manage.py migrate --noinput
+          python manage.py collectstatic --noinput
+
+          if [ ! -f /etc/systemd/system/gunicorn.service ]; then
+            sudo tee /etc/systemd/system/gunicorn.service >/dev/null <<'UNIT'
+            [Unit]
+            Description=Gunicorn for DOODOOK_BE
+            After=network.target
+            [Service]
+            User=ec2-user
+            Group=nginx
+            WorkingDirectory=/var/www/DOODOOK_BE
+            Environment="DJANGO_SETTINGS_MODULE=config.settings"
+            EnvironmentFile=/var/www/DOODOOK_BE/.env
+            ExecStart=/var/www/DOODOOK_BE/.venv/bin/gunicorn config.wsgi:application --bind 127.0.0.1:8000 --workers 3 --timeout 60
+            Restart=always
+            [Install]
+            WantedBy=multi-user.target
+            UNIT
+            sudo systemctl daemon-reload
+            sudo systemctl enable gunicorn
+          fi
+          sudo systemctl restart gunicorn
+
+          if [ ! -f /etc/nginx/conf.d/doodook_be.conf ]; then
+            sudo tee /etc/nginx/conf.d/doodook_be.conf >/dev/null <<'NGX'
+            server {
+              listen 80;
+              server_name _;
+              client_max_body_size 20M;
+              location /static/ { alias /var/www/DOODOOK_BE/static/; access_log off; expires 7d; }
+              location /media  { alias /var/www/DOODOOK_BE/media/;  access_log off; expires 7d; }
+              location / {
+                proxy_set_header Host $host;
+                proxy_set_header X-Forwarded-For $remote_addr;
+                proxy_set_header X-Forwarded-Proto $scheme;
+                proxy_pass http://127.0.0.1:8000;
+              }
+            }
+            NGX
+            sudo nginx -t
+            sudo systemctl enable nginx
+          fi
+
+          sudo nginx -t && sudo systemctl reload nginx
+          curl -sfI http://127.0.0.1/ >/dev/null
+          EOS
+          )
+          CMD_ID=$(aws ssm send-command \
+            --instance-ids "${INSTANCE_ID}" \
+            --document-name "AWS-RunShellScript" \
+            --comment "doodook deploy" \
+            --parameters commands="$DEPLOY" \
+            --query "Command.CommandId" --output text)
+          echo "CMD_ID=$CMD_ID" >> "$GITHUB_OUTPUT"
+
+      - name: Wait for completion
+        run: |
+          for i in $(seq 1 60); do
+            STATUS=$(aws ssm list-command-invocations \
+              --command-id "${{ steps.ssm.outputs.CMD_ID }}" \
+              --details --query "CommandInvocations[0].Status" --output text || true)
+            echo "Status: $STATUS"
+            if [ "$STATUS" = "Success" ]; then exit 0; fi
+            if [ "$STATUS" = "Failed" ] || [ "$STATUS" = "Cancelled" ] || [ "$STATUS" = "TimedOut" ]; then exit 1; fi
+            sleep 5
+          done
+          echo "Timeout waiting for SSM"; exit 1
