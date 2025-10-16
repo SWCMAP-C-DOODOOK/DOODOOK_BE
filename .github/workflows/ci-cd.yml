@@ -54,6 +54,7 @@ jobs:
       DB_HOST: ${{ secrets.DB_HOST }}
       DB_PORT: ${{ secrets.DB_PORT }}
       ALLOWED_HOSTS: ${{ secrets.ALLOWED_HOSTS }}
+      KAKAO_LOGIN_REDIRECT_URL: ${{ secrets.KAKAO_LOGIN_REDIRECT_URL }}
     steps:
       - name: Configure AWS creds (OIDC)
         uses: aws-actions/configure-aws-credentials@v4
@@ -133,6 +134,7 @@ jobs:
           DB_CONN_MAX_AGE=60
 
           ALLOWED_HOSTS=${{ env.ALLOWED_HOSTS }}
+          KAKAO_LOGIN_REDIRECT_URL=${{ env.KAKAO_LOGIN_REDIRECT_URL }}
           ENV
 
           # manage.py가 .env 자동 로드하지 않는 경우 대비 (export)
