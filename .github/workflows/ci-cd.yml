@@ -33,7 +33,7 @@ jobs:
 
       - name: Run checks
         env:
-          DJANGO_SECRET_KEY: test-key
+          SECRET_KEY: test-key
         run: |
           python manage.py check
           python manage.py test --verbosity=2
@@ -47,7 +47,7 @@ jobs:
       REPO: DOODOOK_BE
       INSTANCE_ID: i-0462f20868c7cc71f
 
-      DJANGO_SECRET_KEY: ${{ secrets.DJANGO_SECRET_KEY }}
+      SECRET_KEY: ${{ secrets.SECRET_KEY }}
       DB_NAME: ${{ secrets.DB_NAME }}
       DB_USER: ${{ secrets.DB_USER }}
       DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
@@ -55,6 +55,26 @@ jobs:
       DB_PORT: ${{ secrets.DB_PORT }}
       ALLOWED_HOSTS: ${{ secrets.ALLOWED_HOSTS }}
       KAKAO_LOGIN_REDIRECT_URL: ${{ secrets.KAKAO_LOGIN_REDIRECT_URL }}
+      USE_S3: ${{ secrets.USE_S3 }}
+      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      AWS_STORAGE_BUCKET_NAME: ${{ secrets.AWS_STORAGE_BUCKET_NAME }}
+      AWS_S3_REGION_NAME: ${{ secrets.AWS_S3_REGION_NAME }}
+      AWS_S3_SIGNATURE_VERSION: ${{ secrets.AWS_S3_SIGNATURE_VERSION }}
+      CLOVA_OCR_API_URL: ${{ secrets.CLOVA_OCR_API_URL }}
+      CLOVA_OCR_SECRET: ${{ secrets.CLOVA_OCR_SECRET }}
+      OPENBANKING_BASE_URL: ${{ secrets.OPENBANKING_BASE_URL }}
+      OPENBANKING_CLIENT_ID: ${{ secrets.OPENBANKING_CLIENT_ID }}
+      OPENBANKING_CLIENT_SECRET: ${{ secrets.OPENBANKING_CLIENT_SECRET }}
+      OPENBANKING_CLIENT_USE_CODE: ${{ secrets.OPENBANKING_CLIENT_USE_CODE }}
+      OPENBANKING_REDIRECT_URI: ${{ secrets.OPENBANKING_REDIRECT_URI }}
+      OPENBANKING_SCOPE: ${{ secrets.OPENBANKING_SCOPE }}
+      OPENBANKING_TOKEN_PATH: ${{ secrets.OPENBANKING_TOKEN_PATH }}
+      OPENBANKING_ACCESS_TOKEN: ${{ secrets.OPENBANKING_ACCESS_TOKEN }}
+      OPENBANKING_TIMEOUT: ${{ secrets.OPENBANKING_TIMEOUT }}
+      OPENBANKING_RETRIES: ${{ secrets.OPENBANKING_RETRIES }}
+      OPENBANKING_RL: ${{ secrets.OPENBANKING_RL }}
+      OPENBANKING_SANDBOX: ${{ secrets.OPENBANKING_SANDBOX }}
     steps:
       - name: Configure AWS creds (OIDC)
         uses: aws-actions/configure-aws-credentials@v4
@@ -122,7 +142,7 @@ jobs:
 
           # .env 생성/갱신 (GitHub Actions 시크릿 주입)
           cat > .env <<'ENV'
-          DJANGO_SECRET_KEY=${{ env.DJANGO_SECRET_KEY }}
+          SECRET_KEY=${{ env.SECRET_KEY }}
           DJANGO_SETTINGS_MODULE=config.settings
 
           DB_ENGINE=postgresql
@@ -135,6 +155,26 @@ jobs:
 
           ALLOWED_HOSTS=${{ env.ALLOWED_HOSTS }}
           KAKAO_LOGIN_REDIRECT_URL=${{ env.KAKAO_LOGIN_REDIRECT_URL }}
+          USE_S3=${{ env.USE_S3 }}
+          AWS_ACCESS_KEY_ID=${{ env.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY=${{ env.AWS_SECRET_ACCESS_KEY }}
+          AWS_STORAGE_BUCKET_NAME=${{ env.AWS_STORAGE_BUCKET_NAME }}
+          AWS_S3_REGION_NAME=${{ env.AWS_S3_REGION_NAME }}
+          AWS_S3_SIGNATURE_VERSION=${{ env.AWS_S3_SIGNATURE_VERSION }}
+          CLOVA_OCR_API_URL=${{ env.CLOVA_OCR_API_URL }}
+          CLOVA_OCR_SECRET=${{ env.CLOVA_OCR_SECRET }}
+          OPENBANKING_BASE_URL=${{ env.OPENBANKING_BASE_URL }}
+          OPENBANKING_CLIENT_ID=${{ env.OPENBANKING_CLIENT_ID }}
+          OPENBANKING_CLIENT_SECRET=${{ env.OPENBANKING_CLIENT_SECRET }}
+          OPENBANKING_CLIENT_USE_CODE=${{ env.OPENBANKING_CLIENT_USE_CODE }}
+          OPENBANKING_REDIRECT_URI=${{ env.OPENBANKING_REDIRECT_URI }}
+          OPENBANKING_SCOPE=${{ env.OPENBANKING_SCOPE }}
+          OPENBANKING_TOKEN_PATH=${{ env.OPENBANKING_TOKEN_PATH }}
+          OPENBANKING_ACCESS_TOKEN=${{ env.OPENBANKING_ACCESS_TOKEN }}
+          OPENBANKING_TIMEOUT=${{ env.OPENBANKING_TIMEOUT }}
+          OPENBANKING_RETRIES=${{ env.OPENBANKING_RETRIES }}
+          OPENBANKING_RL=${{ env.OPENBANKING_RL }}
+          OPENBANKING_SANDBOX=${{ env.OPENBANKING_SANDBOX }}
           ENV
 
           # manage.py가 .env 자동 로드하지 않는 경우 대비 (export)
