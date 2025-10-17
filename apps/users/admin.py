@@ -11,12 +11,12 @@ class UserAdmin(BaseUserAdmin):
         "id",
         "username",
         "email",
-        "role",
+        "display_role",
         "is_staff",
         "is_active",
         "date_joined",
     )
-    list_filter = ("role", "is_staff", "is_superuser", "is_active")
+    list_filter = ("is_staff", "is_superuser", "is_active")
     search_fields = ("username", "email", "phone_number")
     ordering = ("id",)
     fieldsets = (
@@ -26,7 +26,6 @@ class UserAdmin(BaseUserAdmin):
             "Permissions",
             {
                 "fields": (
-                    "role",
                     "is_active",
                     "is_staff",
                     "is_superuser",
@@ -42,10 +41,14 @@ class UserAdmin(BaseUserAdmin):
             None,
             {
                 "classes": ("wide",),
-                "fields": ("username", "role", "email", "password1", "password2"),
+                "fields": ("username", "email", "password1", "password2"),
             },
         ),
     )
+
+    @admin.display(description="Role")
+    def display_role(self, obj: User):
+        return obj.legacy_role or "-"
 
 
 @admin.register(UserProfile)

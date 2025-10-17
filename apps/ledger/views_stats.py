@@ -8,9 +8,11 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from apps.common.models import Transaction
+from apps.groups.mixins import GroupContextMixin
+from apps.groups.models import GroupMembership
 
 
-class CategoryShareStatsView(APIView):
+class CategoryShareStatsView(GroupContextMixin, APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
@@ -32,13 +34,20 @@ class CategoryShareStatsView(APIView):
         end_last_day = monthrange(end_year, end_month)[1]
         end_date_exclusive = date(end_year, end_month, end_last_day) + date.resolution
 
+        group = self._resolve_group_or_default()
+
+        filters = {
+            "type": Transaction.TransactionType.EXPENSE,
+            "date__gte": start_date,
+            "date__lt": end_date_exclusive,
+        }
+        if group:
+            filters["group"] = group
+        else:
+            filters["user"] = request.user
+
         queryset = (
-            Transaction.objects.filter(
-                user=request.user,
-                type=Transaction.TransactionType.EXPENSE,
-                date__gte=start_date,
-                date__lt=end_date_exclusive,
-            )
+            Transaction.objects.filter(**filters)
             .values("category")
             .annotate(total=Sum("amount"))
             .order_by("category")
@@ -59,7 +68,7 @@ class CategoryShareStatsView(APIView):
         )
 
 
-class AccumulatedStatsView(APIView):
+class AccumulatedStatsView(GroupContextMixin, APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
@@ -69,10 +78,19 @@ class AccumulatedStatsView(APIView):
 
         trunc = TruncMonth if granularity == "month" else TruncDay
 
+        filters_income = {"type": Transaction.TransactionType.INCOME}
+        filters_expense = {"type": Transaction.TransactionType.EXPENSE}
+        group = self._resolve_group_or_default()
+
+        if group:
+            filters_income["group"] = group
+            filters_expense["group"] = group
+        else:
+            filters_income["user"] = request.user
+            filters_expense["user"] = request.user
+
         incomes = (
-            Transaction.objects.filter(
-                user=request.user, type=Transaction.TransactionType.INCOME
-            )
+            Transaction.objects.filter(**filters_income)
             .annotate(period=trunc("date"))
             .values("period")
             .annotate(total=Sum("amount"))
@@ -80,9 +98,7 @@ class AccumulatedStatsView(APIView):
         )
 
         expenses = (
-            Transaction.objects.filter(
-                user=request.user, type=Transaction.TransactionType.EXPENSE
-            )
+            Transaction.objects.filter(**filters_expense)
             .annotate(period=trunc("date"))
             .values("period")
             .annotate(total=Sum("amount"))
@@ -111,3 +127,13 @@ class AccumulatedStatsView(APIView):
                 "expense": expense_results,
             }
         )
+
+    def _resolve_group_or_default(self):
+        try:
+            return self.get_group()
+        except Exception:
+            memberships = getattr(self.request.user, "group_memberships", None)
+            if memberships is None:
+                return None
+            membership = memberships.filter(status=GroupMembership.Status.ACTIVE).order_by("group__name").first()
+            return getattr(membership, "group", None)

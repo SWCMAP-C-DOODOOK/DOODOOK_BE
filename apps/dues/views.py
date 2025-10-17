@@ -16,6 +16,7 @@ from apps.common.models import Payment
 from apps.common.permissions import IsAdminRole
 from apps.dues.models import DuesReminder
 from apps.dues.serializers import DuesReminderSerializer, DuesReminderUpdateSerializer
+from apps.groups.mixins import GroupContextMixin
 
 User = get_user_model()
 
@@ -42,7 +43,7 @@ def _parse_year_month(params) -> Tuple[int, int]:
     return year, month
 
 
-class PaymentTotalsView(APIView):
+class PaymentTotalsView(GroupContextMixin, APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
@@ -50,9 +51,14 @@ class PaymentTotalsView(APIView):
             year, month = _parse_year_month(request.query_params)
         except ValueError as exc:
             return Response({"detail": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+        group = self.get_group()
 
-        paid_qs = Payment.objects.filter(year=year, month=month, is_paid=True)
-        unpaid_qs = Payment.objects.filter(year=year, month=month).exclude(is_paid=True)
+        paid_qs = Payment.objects.filter(
+            group=group, year=year, month=month, is_paid=True
+        )
+        unpaid_qs = Payment.objects.filter(group=group, year=year, month=month).exclude(
+            is_paid=True
+        )
 
         paid_sum = paid_qs.aggregate(total=Sum("amount"))["total"] or 0
         unpaid_sum = unpaid_qs.aggregate(total=Sum("amount"))["total"] or 0
@@ -67,7 +73,7 @@ class PaymentTotalsView(APIView):
         )
 
 
-class PaymentExportView(APIView):
+class PaymentExportView(GroupContextMixin, APIView):
     permission_classes = [IsAuthenticated, IsAdminRole]
 
     def get(self, request):
@@ -75,8 +81,14 @@ class PaymentExportView(APIView):
             year, month = _parse_year_month(request.query_params)
         except ValueError as exc:
             return Response({"detail": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+        group = self.get_group()
+        self.require_admin()
 
-        payments = Payment.objects.select_related("user").filter(year=year, month=month)
+        payments = (
+            Payment.objects.select_related("user")
+            .filter(group=group, year=year, month=month)
+            .order_by("user__username")
+        )
         filename = f"dues_{year}_{month:02d}.csv"
 
         response = HttpResponse(content_type="text/csv")
@@ -99,10 +111,13 @@ class PaymentExportView(APIView):
         return response
 
 
-class DuesReminderViewSet(viewsets.ModelViewSet):
-    queryset = DuesReminder.objects.select_related("target_user", "created_by").all()
+class DuesReminderViewSet(GroupContextMixin, viewsets.ModelViewSet):
+    queryset = DuesReminder.objects.select_related("target_user", "created_by", "group").all()
     serializer_class = DuesReminderSerializer
     permission_classes = [IsAuthenticated, IsAdminRole]
+
+    def get_queryset(self):
+        return super().get_queryset().filter(group=self.get_group())
 
     def get_serializer_class(self):
         if self.action in {"update", "partial_update"}:
@@ -110,13 +125,19 @@ class DuesReminderViewSet(viewsets.ModelViewSet):
         return super().get_serializer_class()
 
     def perform_create(self, serializer):
+        group = self.get_group()
+        membership = self.require_admin()
         serializer.save(
-            created_by=self.request.user, status=DuesReminder.Status.PENDING
+            group=group,
+            created_by=self.request.user,
+            status=DuesReminder.Status.PENDING,
+            target_membership=serializer.validated_data.get("target_membership"),
         )
 
     @action(detail=True, methods=["post"], url_path="resend")
     def resend(self, request, pk=None):
         reminder = self.get_object()
+        self.require_admin()
         reminder.status = DuesReminder.Status.PENDING
         if "scheduled_at" in request.data:
             try:
@@ -139,6 +160,7 @@ class DuesReminderViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=["post"], url_path="mark-sent")
     def mark_sent(self, request, pk=None):
         reminder = self.get_object()
+        self.require_admin()
         reminder.status = DuesReminder.Status.SENT
         reminder.sent_at = timezone.now()
         reminder.save(update_fields=["status", "sent_at", "updated_at"])
@@ -152,6 +174,11 @@ class DuesReminderViewSet(viewsets.ModelViewSet):
             queryset = queryset.filter(status=status_param)
         serializer = self.get_serializer(queryset, many=True)
         return Response(serializer.data)
+
+    def get_serializer_context(self):
+        context = super().get_serializer_context()
+        context["group"] = self.get_group()
+        return context
 
 
 __all__ = ["PaymentTotalsView", "PaymentExportView", "DuesReminderViewSet"]

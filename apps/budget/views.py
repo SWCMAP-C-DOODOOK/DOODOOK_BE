@@ -15,11 +15,13 @@ from apps.budget.serializers import BudgetSerializer, BudgetWriteSerializer
 from apps.common.filters import BudgetFilter, TransactionFilter
 from apps.common.models import Transaction
 from apps.common.permissions import IsAdminOrReadOnly
+from apps.groups.mixins import GroupContextMixin
+from apps.groups.services import user_is_group_admin
 from apps.ledger.serializers import TransactionSerializer
 
 
-class BudgetViewSet(viewsets.ModelViewSet):
-    queryset = Budget.objects.all().order_by("name")
+class BudgetViewSet(GroupContextMixin, viewsets.ModelViewSet):
+    queryset = Budget.objects.select_related("group").all().order_by("name")
     permission_classes = [IsAuthenticated, IsAdminOrReadOnly]
     filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
     filterset_class = BudgetFilter
@@ -34,9 +36,17 @@ class BudgetViewSet(viewsets.ModelViewSet):
 
     def get_serializer_context(self):
         context = super().get_serializer_context()
+        context["group"] = self.get_group()
         if hasattr(self, "_budget_usage_map"):
             context["budget_usage"] = self._budget_usage_map
         return context
+
+    def get_queryset(self):
+        return (
+            Budget.objects.select_related("group")
+            .filter(group=self.get_group())
+            .order_by("name")
+        )
 
     def list(self, request, *args, **kwargs):
         queryset = self.filter_queryset(self.get_queryset())
@@ -58,6 +68,16 @@ class BudgetViewSet(viewsets.ModelViewSet):
         self._budget_usage_map = self._build_usage_map([instance], date_from, date_to)
         serializer = self.get_serializer(instance)
         return Response(serializer.data)
+
+    def perform_create(self, serializer):
+        self.require_admin()
+        serializer.save(group=self.get_group())
+
+    def perform_update(self, serializer):
+        self.require_admin()
+        if serializer.instance.group_id != self.get_group().id:
+            raise ValidationError({"group_id": "Budget belongs to a different group"})
+        serializer.save()
 
     def _parse_date_params(self, request):
         def parse(value, field_name):
@@ -82,7 +102,9 @@ class BudgetViewSet(viewsets.ModelViewSet):
         budget_ids = [budget.id for budget in budgets if budget.id]
         name_to_id = {budget.name: budget.id for budget in budgets if budget.name}
 
-        qs = Transaction.objects.filter(type=Transaction.TransactionType.EXPENSE)
+        qs = Transaction.objects.filter(
+            group=self.get_group(), type=Transaction.TransactionType.EXPENSE
+        )
         if date_from:
             qs = qs.filter(date__gte=date_from)
         if date_to:
@@ -118,6 +140,7 @@ class BudgetViewSet(viewsets.ModelViewSet):
         queryset = Transaction.objects.select_related("user", "budget").filter(
             Q(budget=budget) | (Q(budget__isnull=True) & Q(category=budget.name))
         )
+        queryset = queryset.filter(group=self.get_group())
         if date_from:
             queryset = queryset.filter(date__gte=date_from)
         if date_to:

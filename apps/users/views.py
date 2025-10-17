@@ -4,15 +4,18 @@ from urllib.parse import urlencode
 from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.http import HttpResponseRedirect
+from django.utils import timezone
 from django.shortcuts import get_object_or_404
 from rest_framework import status, viewsets
-from rest_framework.exceptions import ValidationError
+from rest_framework.exceptions import PermissionDenied, ValidationError
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework_simplejwt.tokens import RefreshToken
 
 from apps.common.permissions import IsAdminRole
+from apps.groups.models import GroupMembership
+from apps.groups.services import resolve_group_and_membership, user_is_group_admin
 
 from .models import UserProfile
 from .serializers import RoleUpdateSerializer, UserProfileSerializer, UserSerializer
@@ -36,20 +39,35 @@ class UserRoleUpdateAPIView(APIView):
     def patch(self, request, pk):
         user_model = get_user_model()
         target_user = get_object_or_404(user_model, pk=pk)
-        serializer = RoleUpdateSerializer(
-            instance=target_user, data=request.data, partial=True
-        )
+        serializer = RoleUpdateSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        if "role" not in serializer.validated_data:
-            raise ValidationError({"role": "Role value is required"})
-        serializer.save()
-        # TODO: enforce additional policies (e.g., prevent self-demotion) if required
-        # TODO: audit log for role changes (who changed when)
+        group, requester_membership = resolve_group_and_membership(request)
+        if not user_is_group_admin(request.user, requester_membership, group):
+            raise PermissionDenied("Admin privileges required")
+
+        role = serializer.validated_data["role"]
+        membership, _created = GroupMembership.objects.get_or_create(
+            group=group,
+            user=target_user,
+            defaults={
+                "role": role,
+                "status": GroupMembership.Status.ACTIVE,
+                "joined_at": timezone.now(),
+                "invited_by": request.user,
+            },
+        )
+        if not _created:
+            membership.role = role
+            if membership.status != GroupMembership.Status.ACTIVE:
+                membership.status = GroupMembership.Status.ACTIVE
+                membership.joined_at = membership.joined_at or timezone.now()
+            membership.save(update_fields=["role", "status", "joined_at", "updated_at"])
         return Response(
             {
                 "id": target_user.id,
                 "username": target_user.get_username(),
-                "role": target_user.role,
+                "group_id": group.id,
+                "role": membership.role,
             }
         )
 

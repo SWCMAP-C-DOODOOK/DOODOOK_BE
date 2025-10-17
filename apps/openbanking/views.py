@@ -7,6 +7,8 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from apps.common.permissions import IsAdminOrReadOnly
+from apps.groups.mixins import GroupContextMixin
+from apps.groups.services import user_is_group_admin
 from apps.openbanking.models import OpenBankingAccount
 from apps.openbanking.serializers import (
     OpenBankingAccountSerializer,
@@ -33,51 +35,61 @@ class OpenBankingCallbackView(APIView):
         return Response(response, status=status.HTTP_200_OK)
 
 
-class OpenBankingAccountViewSet(viewsets.ModelViewSet):
-    queryset = OpenBankingAccount.objects.all().order_by("alias")
+class OpenBankingAccountViewSet(GroupContextMixin, viewsets.ModelViewSet):
+    queryset = OpenBankingAccount.objects.select_related("group").all()
     serializer_class = OpenBankingAccountSerializer
     permission_classes = [IsAuthenticated, IsAdminOrReadOnly]
 
     def get_queryset(self):
         queryset = super().get_queryset()
         user = self.request.user
-        role = getattr(user, "role", None)
-        if role == "admin" or getattr(user, "is_staff", False):
+        group = self.get_group()
+        membership = self.get_membership()
+        queryset = queryset.filter(group=group)
+        if user_is_group_admin(user, membership, group):
             return queryset
         return queryset.filter(enabled=True)
 
+    def get_serializer_context(self):
+        context = super().get_serializer_context()
+        context["group"] = self.get_group()
+        return context
 
-class _AdminOnlyMixin:
-    @staticmethod
-    def _require_admin(user) -> None:
-        if getattr(user, "is_staff", False) or getattr(user, "role", None) == "admin":
-            return
-        raise PermissionDenied("Admin access required in demo mode")
+    def perform_create(self, serializer):
+        self.require_admin()
+        serializer.save(group=self.get_group())
 
-    @staticmethod
-    def _account_payload(account):
-        if not account:
-            return {"alias": None, "bank_name": None}
-        return {"alias": account.alias, "bank_name": account.bank_name}
+    def perform_update(self, serializer):
+        self.require_admin()
+        if serializer.instance.group_id != self.get_group().id:
+            raise PermissionDenied("Account belongs to a different group")
+        serializer.save()
 
 
-class OpenBankingBalanceView(_AdminOnlyMixin, APIView):
+def _account_payload(account):
+    if not account:
+        return {"alias": None, "bank_name": None}
+    return {"alias": account.alias, "bank_name": account.bank_name}
+
+
+class OpenBankingBalanceView(GroupContextMixin, APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
+        group = self.get_group()
         serializer = OpenBankingBalanceQuerySerializer(data=request.query_params)
         serializer.is_valid(raise_exception=True)
         fintech_use_num = serializer.validated_data["fintech_use_num"]
 
         account = OpenBankingAccount.objects.filter(
-            fintech_use_num=fintech_use_num
+            group=group, fintech_use_num=fintech_use_num
         ).first()
         if account and not account.enabled:
             raise PermissionDenied("Account is disabled")
 
-        self._require_admin(request.user)
+        self.require_admin()
         payload = fetch_balance(fintech_use_num)
-        payload["account"] = self._account_payload(account)
+        payload["account"] = _account_payload(account)
 
         debug = request.query_params.get("debug") == "1"
         if not debug:
@@ -85,22 +97,23 @@ class OpenBankingBalanceView(_AdminOnlyMixin, APIView):
         return Response(payload, status=status.HTTP_200_OK)
 
 
-class OpenBankingTransactionsView(_AdminOnlyMixin, APIView):
+class OpenBankingTransactionsView(GroupContextMixin, APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
+        group = self.get_group()
         serializer = OpenBankingTransactionQuerySerializer(data=request.query_params)
         serializer.is_valid(raise_exception=True)
         validated = serializer.validated_data
         fintech_use_num = validated["fintech_use_num"]
 
         account = OpenBankingAccount.objects.filter(
-            fintech_use_num=fintech_use_num
+            group=group, fintech_use_num=fintech_use_num
         ).first()
         if account and not account.enabled:
             raise PermissionDenied("Account is disabled")
 
-        self._require_admin(request.user)
+        self.require_admin()
         payload = fetch_transactions(
             fintech_use_num,
             validated["from_date"],
@@ -109,7 +122,7 @@ class OpenBankingTransactionsView(_AdminOnlyMixin, APIView):
             page=validated["page"],
             size=validated["size"],
         )
-        payload["account"] = self._account_payload(account)
+        payload["account"] = _account_payload(account)
 
         debug = request.query_params.get("debug") == "1"
         if not debug:

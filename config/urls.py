@@ -16,6 +16,7 @@ urlpatterns = [
     path("api/", include("apps.openbanking.urls")),
     path("api/", include("apps.ocr.urls")),
     path("api/", include("apps.dues.urls")),
+    path("api/", include("apps.groups.urls")),
     path("api/stats/category", CategoryShareStatsView.as_view()),
     path("api/stats/accumulated", AccumulatedStatsView.as_view()),
     path("api/", include("apps.common.urls")),

@@ -8,10 +8,13 @@ from apps.openbanking.models import OpenBankingAccount
 
 
 class OpenBankingAccountSerializer(serializers.ModelSerializer):
+    group_id = serializers.IntegerField(source="group_id", read_only=True)
+
     class Meta:
         model = OpenBankingAccount
         fields = [
             "id",
+            "group_id",
             "alias",
             "fintech_use_num",
             "bank_name",
@@ -20,7 +23,18 @@ class OpenBankingAccountSerializer(serializers.ModelSerializer):
             "created_at",
             "updated_at",
         ]
-        read_only_fields = ["id", "created_at", "updated_at"]
+        read_only_fields = ["id", "group_id", "created_at", "updated_at"]
+
+    def create(self, validated_data):
+        group = validated_data.pop("group", None) or self.context.get("group")
+        if group is None:
+            raise serializers.ValidationError({"group_id": "group context is required"})
+        return super().create({"group": group, **validated_data})
+
+    def update(self, instance, validated_data):
+        if "group" in validated_data and validated_data["group"] != instance.group:
+            raise serializers.ValidationError({"group_id": "Cannot change account group"})
+        return super().update(instance, validated_data)
 
 
 class OpenBankingBalanceQuerySerializer(serializers.Serializer):

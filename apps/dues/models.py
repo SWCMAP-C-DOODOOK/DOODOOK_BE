@@ -3,6 +3,7 @@ from django.conf import settings
 from django.db import models
 
 from apps.common.models import TimeStampedModel
+from apps.groups.models import Group, GroupMembership
 
 
 class DuesReminder(TimeStampedModel):
@@ -16,10 +17,24 @@ class DuesReminder(TimeStampedModel):
         SENT = "sent", "sent"
         FAILED = "failed", "failed"
 
+    group = models.ForeignKey(
+        Group,
+        on_delete=models.CASCADE,
+        related_name="dues_reminders",
+        null=True,
+        blank=True,
+    )
     target_user = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.CASCADE,
         related_name="dues_reminders",
+    )
+    target_membership = models.ForeignKey(
+        GroupMembership,
+        on_delete=models.CASCADE,
+        related_name="dues_reminders",
+        null=True,
+        blank=True,
     )
     channel = models.CharField(max_length=16, choices=Channel.choices)
     scheduled_at = models.DateTimeField()

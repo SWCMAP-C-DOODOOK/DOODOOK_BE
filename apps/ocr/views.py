@@ -15,16 +15,18 @@ from rest_framework.views import APIView
 
 from apps.common.models import OcrApproval, OcrValidationLog, Transaction
 from apps.common.permissions import IsAdminOrReadOnly, IsAdminRole
+from apps.groups.mixins import GroupContextMixin
 from apps.ocr.serializers import OcrApprovalSerializer, ReceiptOCRRequestSerializer
 from apps.ocr.services import OCRServiceError, encode_file_to_base64
 from apps.ocr.services.clova_ocr import extract_text_clova, parse_receipt
 
 
-class ReceiptOCRView(APIView):
+class ReceiptOCRView(GroupContextMixin, APIView):
     permission_classes = [IsAuthenticated]
     parser_classes = [MultiPartParser, FormParser, JSONParser]
 
     def post(self, request):
+        group = self.get_group()
         data = (
             request.data.copy() if hasattr(request.data, "copy") else dict(request.data)
         )
@@ -64,7 +66,7 @@ class ReceiptOCRView(APIView):
 
         if transaction_id:
             transaction = get_object_or_404(
-                Transaction.objects.select_related("user"), pk=transaction_id
+                Transaction.objects.select_related("user"), pk=transaction_id, group=group
             )
             if not has_image:
                 if not transaction.receipt_image:
@@ -137,9 +139,10 @@ class ReceiptOCRView(APIView):
                     {"detail": "transaction_id is required to store OCR text"},
                     status=status.HTTP_400_BAD_REQUEST,
                 )
-            is_admin_role = getattr(request.user, "role", None) == "admin" or getattr(
-                request.user, "is_staff", False
-            )
+            membership = self.get_membership()
+            is_admin_role = membership and membership.role == "admin"
+            if getattr(request.user, "is_staff", False):
+                is_admin_role = True
             if not (is_admin_role or transaction.user_id == request.user.id):
                 return Response(
                     {"detail": "Not authorized to store OCR result"},

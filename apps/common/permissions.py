@@ -1,4 +1,7 @@
 from rest_framework.permissions import SAFE_METHODS, BasePermission
+from rest_framework.exceptions import ValidationError
+
+from apps.groups.services import resolve_group_and_membership, user_is_group_admin
 
 
 class IsAdminRole(BasePermission):
@@ -8,8 +11,14 @@ class IsAdminRole(BasePermission):
         user = request.user
         if not user or not user.is_authenticated:
             return False
-        role = getattr(user, "role", None)
-        return role == "admin" or bool(getattr(user, "is_staff", False))
+        try:
+            group, membership = resolve_group_and_membership(request)
+        except ValidationError:
+            # Non group-specific endpoints fallback to staff/admin flags
+            return bool(getattr(user, "is_staff", False) or getattr(user, "is_superuser", False))
+        except Exception:
+            return False
+        return user_is_group_admin(user, membership, group)
 
 
 class IsAdminOrReadOnly(BasePermission):
@@ -21,8 +30,13 @@ class IsAdminOrReadOnly(BasePermission):
             return False
         if request.method in SAFE_METHODS:
             return True
-        role = getattr(user, "role", None)
-        return role == "admin" or bool(getattr(user, "is_staff", False))
+        try:
+            group, membership = resolve_group_and_membership(request)
+        except ValidationError:
+            return bool(getattr(user, "is_staff", False) or getattr(user, "is_superuser", False))
+        except Exception:
+            return False
+        return user_is_group_admin(user, membership, group)
 
 
 class IsOwnerOrAdmin(BasePermission):
@@ -32,8 +46,14 @@ class IsOwnerOrAdmin(BasePermission):
         user = request.user
         if not user or not user.is_authenticated:
             return False
-        role = getattr(user, "role", None)
-        if role == "admin" or bool(getattr(user, "is_staff", False)):
+        try:
+            group, membership = resolve_group_and_membership(request)
+        except ValidationError:
+            membership = None
+            group = None
+        except Exception:
+            return False
+        if user_is_group_admin(user, membership, group):
             return True
         owner = getattr(obj, "user", None)
         return owner == user

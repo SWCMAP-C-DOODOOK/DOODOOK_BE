@@ -81,6 +81,7 @@ INSTALLED_APPS = [
     "apps.ocr",
     "apps.ledger",
     "apps.dues",
+    "apps.groups",
     "apps.common",
     "apps.users",
 ]

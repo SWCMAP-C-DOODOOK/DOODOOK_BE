@@ -61,7 +61,11 @@ class BudgetWriteSerializer(serializers.ModelSerializer):
         return value
 
     def validate_name(self, value: str) -> str:
-        qs = Budget.objects.filter(name=value)
+        group = self.context.get("group")
+        filters = {"name": value}
+        if group is not None:
+            filters["group"] = group
+        qs = Budget.objects.filter(**filters)
         if self.instance:
             qs = qs.exclude(pk=self.instance.pk)
         if qs.exists():

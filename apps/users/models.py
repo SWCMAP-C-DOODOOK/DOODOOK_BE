@@ -6,19 +6,51 @@ from apps.common.models import TimeStampedModel
 
 
 class User(AbstractUser):
-    class Roles(models.TextChoices):
-        ADMIN = "admin", "admin"
-        MEMBER = "member", "member"
-
     email = models.EmailField(unique=True, null=True, blank=True)
     phone_number = models.CharField(max_length=20, null=True, blank=True)
     kakao_id = models.CharField(max_length=64, unique=True, null=True, blank=True)
-    role = models.CharField(
-        max_length=10, choices=Roles.choices, default=Roles.MEMBER, db_index=True
-    )
 
     def __str__(self):
         return f"{self.username} ({self.email})" if self.email else self.username
+
+    def get_membership(self, group):
+        """Return active membership for the provided group (or None)."""
+        if group is None:
+            return None
+        from apps.groups.models import GroupMembership
+
+        return self.group_memberships.filter(
+            group=group,
+            status=GroupMembership.Status.ACTIVE,
+        ).first()
+
+    def get_role_for_group(self, group):
+        membership = self.get_membership(group)
+        return getattr(membership, "role", None)
+
+    @property
+    def legacy_role(self):
+        """Backwards compatible role accessor; prefers first active admin membership."""
+        from apps.groups.models import GroupMembership
+
+        memberships = list(
+            self.group_memberships.filter(
+                status=GroupMembership.Status.ACTIVE
+            ).select_related("group")[:5]
+        )
+        for membership in memberships:
+            if membership.role == "admin":
+                return "admin"
+        return memberships[0].role if memberships else None
+
+    @property
+    def role(self):
+        """
+        Deprecated: prefer determining role via GroupMembership.
+
+        This property is kept for compatibility until all call sites are migrated.
+        """
+        return self.legacy_role
 
 
 # migration 필요

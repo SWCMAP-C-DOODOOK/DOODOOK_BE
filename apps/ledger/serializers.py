@@ -26,6 +26,8 @@ if TYPE_CHECKING:  # pragma: no cover
 
 class TransactionSerializer(serializers.ModelSerializer):
     user = UserSerializer(read_only=True)
+    group_id = serializers.IntegerField(source="group_id", read_only=True)
+    group_name = serializers.CharField(source="group.name", read_only=True)
     budget_id = serializers.PrimaryKeyRelatedField(
         source="budget",
         queryset=Budget.objects.all(),
@@ -41,6 +43,8 @@ class TransactionSerializer(serializers.ModelSerializer):
         fields = [
             "id",
             "user",
+            "group_id",
+            "group_name",
             "budget_id",
             "budget",
             "amount",
@@ -89,10 +93,14 @@ class TransactionSerializer(serializers.ModelSerializer):
         if self.instance and description is None:
             description = self.instance.description
         date = attrs.get("date") or (self.instance.date if self.instance else None)
+        group = getattr(self.context.get("request"), "group", None)
         if user and getattr(user, "is_authenticated", False) and date and description:
             normalized = re.sub(r"\s+", "", description or "").lower()
             if normalized:
-                qs = Transaction.objects.filter(user=user, date=date)
+                filters = {"user": user, "date": date}
+                if group:
+                    filters["group"] = group
+                qs = Transaction.objects.filter(**filters)
                 if self.instance:
                     qs = qs.exclude(pk=self.instance.pk)
                 for existing in qs[:5]:

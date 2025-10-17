@@ -2,14 +2,30 @@
 from django.conf import settings
 from django.db import models
 
+from apps.groups.models import Group, GroupMembership
+
 from . import TimeStampedModel
 
 
 class Payment(TimeStampedModel):
     """Monthly dues payment record."""
 
+    group = models.ForeignKey(
+        Group,
+        on_delete=models.CASCADE,
+        related_name="payments",
+        null=True,
+        blank=True,
+    )
     user = models.ForeignKey(
         settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="payments"
+    )
+    membership = models.ForeignKey(
+        GroupMembership,
+        on_delete=models.CASCADE,
+        related_name="payments",
+        null=True,
+        blank=True,
     )
     year = models.PositiveSmallIntegerField()
     month = models.PositiveSmallIntegerField()
@@ -23,12 +39,14 @@ class Payment(TimeStampedModel):
     class Meta:
         constraints = [
             models.UniqueConstraint(
-                fields=["user", "year", "month"], name="unique_user_year_month_payment"
+                fields=["group", "user", "year", "month"],
+                name="unique_group_user_year_month_payment",
             ),
         ]
         indexes = [
             models.Index(
-                fields=["user", "year", "month"], name="idx_payment_user_year_month"
+                fields=["group", "user", "year", "month"],
+                name="idx_pay_group_user_ym",
             ),
         ]
         ordering = ["-year", "-month", "user"]

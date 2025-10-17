@@ -3,6 +3,8 @@ from django.conf import settings
 from django.db import models
 from django.utils import timezone
 
+from apps.groups.models import Group, GroupMembership
+
 from . import TimeStampedModel
 
 
@@ -13,8 +15,22 @@ class Transaction(TimeStampedModel):
         INCOME = "income", "income"
         EXPENSE = "expense", "expense"
 
+    group = models.ForeignKey(
+        Group,
+        on_delete=models.CASCADE,
+        related_name="transactions",
+        null=True,
+        blank=True,
+    )
     user = models.ForeignKey(
         settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="transactions"
+    )
+    membership = models.ForeignKey(
+        GroupMembership,
+        on_delete=models.CASCADE,
+        related_name="transactions",
+        null=True,
+        blank=True,
     )
     budget = models.ForeignKey(
         "budget.Budget",
@@ -36,8 +52,10 @@ class Transaction(TimeStampedModel):
 
     class Meta:
         indexes = [
-            models.Index(fields=["date"], name="idx_transaction_date"),
-            models.Index(fields=["type", "date"], name="idx_transaction_type_date"),
+            models.Index(fields=["group", "date"], name="idx_tx_group_date"),
+            models.Index(
+                fields=["group", "type", "date"], name="idx_tx_group_type_date"
+            ),
         ]
         ordering = ["-date", "-id"]
 
