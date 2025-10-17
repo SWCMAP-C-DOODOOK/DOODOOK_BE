@@ -54,7 +54,9 @@ jobs:
       DB_HOST: ${{ secrets.DB_HOST }}
       DB_PORT: ${{ secrets.DB_PORT }}
       ALLOWED_HOSTS: ${{ secrets.ALLOWED_HOSTS }}
+      KAKAO_REST_API_KEY: ${{ secrets.KAKAO_REST_API_KEY }}
       KAKAO_LOGIN_REDIRECT_URL: ${{ secrets.KAKAO_LOGIN_REDIRECT_URL }}
+      KAKAO_REDIRECT_URI: ${{ secrets.KAKAO_REDIRECT_URI }}
       USE_S3: ${{ secrets.USE_S3 }}
       AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
       AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
@@ -154,7 +156,9 @@ jobs:
           DB_CONN_MAX_AGE=60
 
           ALLOWED_HOSTS=${{ env.ALLOWED_HOSTS }}
+          KAKAO_REST_API_KEY=${{ env.KAKAO_REST_API_KEY }}
           KAKAO_LOGIN_REDIRECT_URL=${{ env.KAKAO_LOGIN_REDIRECT_URL }}
+          KAKAO_REDIRECT_URI=${{ env.KAKAO_REDIRECT_URI }}
           USE_S3=${{ env.USE_S3 }}
           AWS_ACCESS_KEY_ID=${{ env.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY=${{ env.AWS_SECRET_ACCESS_KEY }}
