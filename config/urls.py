@@ -21,6 +21,9 @@ urlpatterns = [
     path("api/stats/accumulated", AccumulatedStatsView.as_view()),
     path("api/", include("apps.common.urls")),
     path("api/", include("apps.users.urls")),
+    path('admin/', admin.site.urls),
+    # 🌟 여기에 'policies' 앱의 URL을 포함하는 이 한 줄을 추가합니다. 🌟
+    path('api/', include('apps.policies.urls')),
 ]
 
 if settings.DEBUG:

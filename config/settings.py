@@ -84,6 +84,7 @@ INSTALLED_APPS = [
     "apps.groups",
     "apps.common",
     "apps.users",
+    "apps.policies",
 ]
 
 if not _HAS_DJANGO_FILTERS:
