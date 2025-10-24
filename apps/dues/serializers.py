@@ -7,7 +7,7 @@ from apps.groups.models import GroupMembership
 
 
 class DuesReminderSerializer(serializers.ModelSerializer):
-    group_id = serializers.IntegerField(source="group_id", read_only=True)
+    group_id = serializers.IntegerField(read_only=True)
     target_user = serializers.PrimaryKeyRelatedField(
         queryset=get_user_model().objects.all()
     )

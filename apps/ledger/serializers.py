@@ -26,7 +26,7 @@ if TYPE_CHECKING:  # pragma: no cover
 
 class TransactionSerializer(serializers.ModelSerializer):
     user = UserSerializer(read_only=True)
-    group_id = serializers.IntegerField(source="group_id", read_only=True)
+    group_id = serializers.IntegerField(read_only=True)
     group_name = serializers.CharField(source="group.name", read_only=True)
     budget_id = serializers.PrimaryKeyRelatedField(
         source="budget",

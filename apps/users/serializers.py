@@ -9,7 +9,7 @@ User = get_user_model()
 
 
 class GroupMembershipSerializer(serializers.ModelSerializer):
-    group_id = serializers.IntegerField(source="group_id", read_only=True)
+    group_id = serializers.IntegerField(read_only=True)
     group_name = serializers.CharField(source="group.name", read_only=True)
     is_admin = serializers.SerializerMethodField()
 

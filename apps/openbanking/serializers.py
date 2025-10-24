@@ -8,7 +8,7 @@ from apps.openbanking.models import OpenBankingAccount
 
 
 class OpenBankingAccountSerializer(serializers.ModelSerializer):
-    group_id = serializers.IntegerField(source="group_id", read_only=True)
+    group_id = serializers.IntegerField(read_only=True)
 
     class Meta:
         model = OpenBankingAccount

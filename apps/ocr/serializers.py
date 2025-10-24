@@ -39,7 +39,7 @@ class OcrApprovalSerializer(serializers.Serializer):
 
 
 class OcrApprovalDetailSerializer(serializers.ModelSerializer):
-    transaction_id = serializers.IntegerField(source="transaction_id", read_only=True)
+    transaction_id = serializers.IntegerField(read_only=True)
     transaction = serializers.SerializerMethodField()
     reviewer = serializers.SerializerMethodField()
 

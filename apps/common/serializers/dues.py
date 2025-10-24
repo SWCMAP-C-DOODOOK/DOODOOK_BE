@@ -12,7 +12,7 @@ User = get_user_model()
 
 
 class PaymentSerializer(serializers.ModelSerializer):
-    group_id = serializers.IntegerField(source="group_id", read_only=True)
+    group_id = serializers.IntegerField(read_only=True)
     user_id = serializers.PrimaryKeyRelatedField(
         source="user", queryset=User.objects.all()
     )
