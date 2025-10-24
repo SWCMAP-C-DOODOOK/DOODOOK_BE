@@ -9,6 +9,14 @@ class Group(TimeStampedModel):
 
     name = models.CharField(max_length=120)
     description = models.TextField(blank=True)
+    invite_code = models.CharField(
+        max_length=16,
+        unique=True,
+        null=True,
+        blank=True,
+        help_text="6-character alphanumeric invite code",
+    )
+    invite_code_expires_at = models.DateTimeField(null=True, blank=True)
     owner = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.SET_NULL,

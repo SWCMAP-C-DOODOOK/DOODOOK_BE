@@ -50,12 +50,16 @@ class UserSerializer(serializers.ModelSerializer):
 
 class UserProfileSerializer(serializers.ModelSerializer):
     avatar = serializers.ImageField(use_url=True, required=False, allow_null=True)
+    first_name = serializers.CharField(
+        source="user.first_name", required=False, allow_blank=True
+    )
 
     class Meta:
         model = UserProfile
         fields = [
             "id",
             "user",
+            "first_name",
             "nickname",
             "phone",
             "kakao_id",
@@ -64,6 +68,24 @@ class UserProfileSerializer(serializers.ModelSerializer):
             "updated_at",
         ]
         read_only_fields = ["id", "user", "created_at", "updated_at"]
+
+    def create(self, validated_data):
+        user_data = validated_data.pop("user", {})
+        profile = super().create(validated_data)
+        first_name = user_data.get("first_name")
+        if first_name is not None and profile.user.first_name != first_name:
+            profile.user.first_name = first_name
+            profile.user.save(update_fields=["first_name"])
+        return profile
+
+    def update(self, instance, validated_data):
+        user_data = validated_data.pop("user", {})
+        profile = super().update(instance, validated_data)
+        first_name = user_data.get("first_name")
+        if first_name is not None and profile.user.first_name != first_name:
+            profile.user.first_name = first_name
+            profile.user.save(update_fields=["first_name"])
+        return profile
 
 
 class RoleUpdateSerializer(serializers.Serializer):

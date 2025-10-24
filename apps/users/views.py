@@ -27,10 +27,25 @@ class UserProfileViewSet(viewsets.ModelViewSet):
     serializer_class = UserProfileSerializer
     permission_classes = [IsAuthenticated]
 
+    def get_queryset(self):
+        queryset = super().get_queryset()
+        user = self.request.user
+        if user.is_staff or getattr(user, "is_superuser", False):
+            return queryset
+        return queryset.filter(user=user)
+
     def perform_create(self, serializer):
         # Admin-only create; attach a user explicitly if provided, otherwise default to request.user
         user = self.request.user if self.request.user.is_authenticated else None
         serializer.save(user=user)
+
+    def perform_update(self, serializer):
+        profile = serializer.instance
+        user = self.request.user
+        if not (user.is_staff or getattr(user, "is_superuser", False)):
+            if profile.user_id != user.id:
+                raise PermissionDenied("다른 사용자의 프로필은 수정할 수 없습니다.")
+        serializer.save()
 
 
 class UserRoleUpdateAPIView(APIView):

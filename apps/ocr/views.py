@@ -5,9 +5,10 @@ import os
 
 from django.conf import settings
 from django.db import transaction as db_transaction
+from django.db.models import Q
 from django.shortcuts import get_object_or_404
 from rest_framework import status
-from rest_framework.exceptions import ValidationError
+from rest_framework.exceptions import PermissionDenied, ValidationError
 from rest_framework.parsers import FormParser, JSONParser, MultiPartParser
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
@@ -16,7 +17,13 @@ from rest_framework.views import APIView
 from apps.common.models import OcrApproval, OcrValidationLog, Transaction
 from apps.common.permissions import IsAdminOrReadOnly, IsAdminRole
 from apps.groups.mixins import GroupContextMixin
-from apps.ocr.serializers import OcrApprovalSerializer, ReceiptOCRRequestSerializer
+from apps.ocr.serializers import (
+    OcrApprovalDetailSerializer,
+    OcrApprovalSerializer,
+    OcrPendingTransactionSerializer,
+    OcrValidationLogSerializer,
+    ReceiptOCRRequestSerializer,
+)
 from apps.ocr.services import OCRServiceError, encode_file_to_base64
 from apps.ocr.services.clova_ocr import extract_text_clova, parse_receipt
 
@@ -247,3 +254,65 @@ class OcrApproveView(_OcrApprovalMixin):
 
 class OcrRejectView(_OcrApprovalMixin):
     target_status = OcrApproval.Status.REJECTED
+
+
+class OcrApprovalDetailView(GroupContextMixin, APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, pk):
+        group = self.get_group()
+        transaction = get_object_or_404(
+            Transaction.objects.select_related("user", "ocr_approval"),
+            pk=pk,
+            group=group,
+        )
+        approval, _created = OcrApproval.objects.get_or_create(transaction=transaction)
+        serializer = OcrApprovalDetailSerializer(
+            approval, context={"request": request}
+        )
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+class OcrPendingApprovalListView(GroupContextMixin, APIView):
+    permission_classes = [IsAuthenticated, IsAdminRole]
+
+    def get(self, request):
+        group = self.get_group()
+        queryset = (
+            Transaction.objects.select_related("user", "ocr_approval")
+            .filter(group=group, ocr_text__isnull=False)
+            .filter(
+                Q(ocr_approval__status=OcrApproval.Status.PENDING)
+                | Q(ocr_approval__isnull=True)
+            )
+            .order_by("-updated_at")
+        )
+        serializer = OcrPendingTransactionSerializer(
+            queryset, many=True, context={"request": request}
+        )
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+class OcrValidationLogListView(GroupContextMixin, APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, pk):
+        group = self.get_group()
+        transaction = get_object_or_404(
+            Transaction.objects.select_related("user"),
+            pk=pk,
+            group=group,
+        )
+        membership = self.get_membership()
+        is_admin = (
+            getattr(request.user, "is_staff", False)
+            or getattr(request.user, "is_superuser", False)
+            or (membership and membership.role == "admin")
+        )
+        if not is_admin and transaction.user_id != request.user.id:
+            raise PermissionDenied("검수 로그는 관리자나 작성자만 볼 수 있습니다.")
+        logs = transaction.ocr_validation_logs.select_related("user").all()
+        serializer = OcrValidationLogSerializer(
+            logs, many=True, context={"request": request}
+        )
+        return Response(serializer.data, status=status.HTTP_200_OK)

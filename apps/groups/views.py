@@ -1,6 +1,7 @@
 from django.contrib.auth import get_user_model
 from django.db.models import Sum
 from django.utils import timezone
+from django.shortcuts import get_object_or_404
 from rest_framework import status, viewsets
 from rest_framework.exceptions import PermissionDenied, ValidationError
 from rest_framework.permissions import IsAuthenticated
@@ -13,11 +14,17 @@ from apps.openbanking.services import fetch_balance
 from apps.groups.models import Group, GroupMembership
 from apps.groups.serializers import (
     GroupCreateSerializer,
+    GroupJoinSerializer,
     GroupMembershipMutationSerializer,
     GroupMembershipSerializer,
     GroupSerializer,
 )
-from apps.groups.services import get_active_membership, resolve_group_with_default
+from apps.groups.services import (
+    generate_invite_code,
+    get_active_membership,
+    resolve_group_with_default,
+    user_is_group_admin,
+)
 
 
 class GroupViewSet(viewsets.ModelViewSet):
@@ -208,6 +215,82 @@ class GroupMembershipViewSet(viewsets.ModelViewSet):
         ).first()
         if membership is None or membership.role != GroupMembership.Roles.ADMIN:
             raise PermissionDenied("그룹 관리자만 변경할 수 있습니다.")
+
+
+class GroupInviteCodeView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, pk):
+        group = get_object_or_404(Group, pk=pk)
+        membership = get_active_membership(group, request.user)
+        if not user_is_group_admin(request.user, membership, group):
+            raise PermissionDenied("그룹 관리자만 초대 코드를 확인할 수 있습니다.")
+        if not group.invite_code:
+            for _ in range(10):
+                candidate = generate_invite_code()
+                if not Group.objects.filter(invite_code=candidate).exists():
+                    group.invite_code = candidate
+                    group.save(update_fields=["invite_code", "updated_at"])
+                    break
+            else:
+                raise ValidationError({"detail": "초대 코드를 생성할 수 없습니다. 다시 시도해주세요."})
+        payload = {"group_id": group.id, "invite_code": group.invite_code}
+        if group.invite_code_expires_at:
+            payload["invite_code_expires_at"] = group.invite_code_expires_at
+        return Response(payload, status=status.HTTP_200_OK)
+
+
+class GroupJoinView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        serializer = GroupJoinSerializer(
+            data=request.data, context={"request": request}
+        )
+        serializer.is_valid(raise_exception=True)
+        membership = serializer.save()
+        output = GroupMembershipSerializer(
+            membership, context={"request": request}
+        )
+        status_code = (
+            status.HTTP_201_CREATED
+            if getattr(serializer, "_created", False)
+            else status.HTTP_200_OK
+        )
+        return Response(output.data, status=status_code)
+
+
+class GroupLeaveView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, pk):
+        group = get_object_or_404(Group, pk=pk)
+        membership = GroupMembership.objects.filter(
+            group=group,
+            user=request.user,
+            status=GroupMembership.Status.ACTIVE,
+        ).first()
+        if membership is None:
+            raise ValidationError({"detail": "그룹 구성원이 아닙니다."})
+        if membership.role == GroupMembership.Roles.ADMIN and not (
+            request.user.is_staff or getattr(request.user, "is_superuser", False)
+        ):
+            has_other_admin = GroupMembership.objects.filter(
+                group=group,
+                status=GroupMembership.Status.ACTIVE,
+                role=GroupMembership.Roles.ADMIN,
+            ).exclude(pk=membership.pk).exists()
+            if not has_other_admin:
+                raise PermissionDenied("마지막 그룹 관리자는 탈퇴할 수 없습니다.")
+        membership.status = GroupMembership.Status.LEFT
+        membership.left_at = timezone.now()
+        membership.save(update_fields=["status", "left_at", "updated_at"])
+        payload = {
+            "group_id": group.id,
+            "status": membership.status,
+            "left_at": membership.left_at,
+        }
+        return Response(payload, status=status.HTTP_200_OK)
 
 
 def _serialize_transactions(queryset):

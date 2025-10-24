@@ -1,3 +1,5 @@
+import random
+import string
 from typing import Optional
 
 from django.shortcuts import get_object_or_404
@@ -101,3 +103,8 @@ def user_is_group_admin(
             status=GroupMembership.Status.ACTIVE,
         ).exists()
     return False
+
+
+def generate_invite_code(length: int = 6) -> str:
+    alphabet = string.ascii_uppercase + string.digits
+    return "".join(random.choices(alphabet, k=length))
